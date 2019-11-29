@@ -1,0 +1,21 @@
+img {
+  display: inline-block;
+  object-fit: contain;
+}
+
+::selection {
+  background-color: var(--theme-color);
+  color: white;
+}
+
+html, body, #root {
+  height: 100%;
+}
+
+#root {
+  color: #555;
+  max-width: 500px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}

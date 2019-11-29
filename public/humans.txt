@@ -1,0 +1,16 @@
+# humanstxt.org/
+# The humans responsible & technology colophon
+
+# TEAM
+
+    <tingyuan> -- <role> -- <twitter>
+
+# THANKS
+
+    <tingyuan>
+
+# TECHNOLOGY COLOPHON
+
+    HTML5 Boilerplate
+    CSS3, HTML5
+    Normalize.css
