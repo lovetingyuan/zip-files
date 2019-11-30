@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "serve": "npx parcel public/index.html --cache-dir node_modules/.cache/parcel",
-    "build": "npx parcel build public/index.html --cache-dir node_modules/.cache/parcel --detailed-report --no-source-maps",
+    "build": "npx parcel build public/index.html --cache-dir node_modules/.cache/parcel --detailed-report --no-source-maps --public-url ./",
     "dev": "npx rimraf node_modules/.cache dist && npm run serve",
     "lint": "npx standard --plugin html 'src/**/*.{js,htm}' --fix",
     "preserve": "npx gulp i18n --env development",
