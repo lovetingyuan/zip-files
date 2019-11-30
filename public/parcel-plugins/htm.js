@@ -99,11 +99,7 @@ function exportDefaultDeclaration (path, taggedTemplateExpression, cid) {
     t.identifier('view'),
     [
       t.identifier('props'),
-      t.identifier('state'),
-      t.assignmentPattern(
-        t.identifier('_'),
-        t.identifier('state')
-      )
+      t.identifier('_')
     ],
     t.blockStatement(
       [
@@ -222,7 +218,7 @@ if (module.hot) {
   }
   _transformScript (code, template, cid) {
     const self = this
-    const result = babel.transformSync('this.h`'+ template + '`', {
+    const result = babel.transformSync('this.h`' + template + '`', {
       ast: true, code: false, sourceMaps: false,
       plugins: [
         function() {

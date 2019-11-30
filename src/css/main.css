@@ -19,3 +19,15 @@ html, body, #root {
   display: flex;
   flex-direction: column;
 }
+
+@media screen and (max-width: 900px) {
+  #root {
+    padding: 0 40px;
+  }
+}
+
+@media screen and (max-width: 340px) {
+  #root {
+    padding: 0 20px;
+  }
+}
