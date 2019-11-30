@@ -155,6 +155,22 @@ exports.prerender = function (done) {
               fse.writeFileSync(
                 path.join(dist, 'index.html'),
                 indexHtml.replace(/<div id=("root"|root)><\/div>/m, rendered)
+                  .replace(/<\/body><\/html>$/, function () {
+                    const swfunc = sw.toString()
+                    const swfuncstr = swfunc.substring(swfunc.indexOf('{') + 1, swfunc.lastIndexOf('}'))
+                    const swresult = swfuncstr.replace('CACHE_LIST', JSON.stringify(
+                      ['/', ...fse.readdirSync(dist)]
+                    ))
+                      .replace('CACHE_VERSION', JSON.stringify(pkg.version))
+                    const swfilename = 'sw-' + pkg.version + '.js'
+                    fse.outputFileSync(path.join(dist, swfilename), swresult)
+                    return `<script>
+                    if ('serviceWorker' in navigator) {
+                      window.addEventListener('load', function() {
+                        navigator.serviceWorker.register('./${swfilename}');
+                      });
+                    }</script></body></html>`.replace(/\s{2,}/g, ' ')
+                  })
               )
               done()
             })
@@ -163,6 +179,65 @@ exports.prerender = function (done) {
       }
     }).catch(done)
   })
+}
+
+function sw () {
+  const filesToCache = CACHE_LIST;
+  
+  const staticCacheName = CACHE_VERSION;
+  
+  self.addEventListener('install', event => {
+    console.log('Attempting to install service worker and cache static assets');
+    event.waitUntil(
+      caches.open(staticCacheName)
+      .then(cache => {
+        return cache.addAll(filesToCache);
+      })
+    );
+  });
+
+  self.addEventListener('fetch', event => {
+    // console.log('Fetch event for ', event.request.url);
+    event.respondWith(
+      caches.match(event.request)
+      .then(response => {
+        if (response) {
+          console.log('Found ', event.request.url, ' in cache');
+          return response;
+        }
+        console.log('Network request for ', event.request.url);
+        return fetch(event.request).then(response => {
+          // TODO 5 - Respond with custom 404 page
+          return caches.open(staticCacheName).then(cache => {
+            cache.put(event.request.url, response.clone());
+            return response;
+          });
+        });
+  
+      }).catch(error => {
+  
+        // TODO 6 - Respond with custom offline page
+  
+      })
+    );
+  });
+  self.addEventListener('activate', event => {
+     // console.log('Activating new service worker...');
+
+    const cacheWhitelist = [staticCacheName];
+
+    event.waitUntil(
+      caches.keys().then(cacheNames => {
+        return Promise.all(
+          cacheNames.map(cacheName => {
+            if (cacheWhitelist.indexOf(cacheName) === -1) {
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    );
+  });
 }
 
 exports.default = series(
