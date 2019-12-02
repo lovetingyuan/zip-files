@@ -17,8 +17,6 @@
   "author": "tingyuan",
   "license": "MIT",
   "devDependencies": {
-    "@babel/core": "^7.7.2",
-    "@vue/component-compiler-utils": "^3.0.2",
     "cssnano": "^4.1.10",
     "eslint-plugin-html": "^6.0.0",
     "express": "^4.17.1",
@@ -27,13 +25,10 @@
     "got": "^9.6.0",
     "gulp": "^4.0.2",
     "gulp-cli": "^2.2.0",
-    "he": "^1.2.0",
     "jsdom": "^15.2.0",
-    "mustache": "^3.1.0",
     "parcel-bundler": "^1.12.4",
     "parcel-plugin-lighterhtm": "./public/parcel-plugins",
-    "standard": "^14.3.1",
-    "validate-element-name": "^2.1.1"
+    "standard": "^14.3.1"
   },
   "dependencies": {
     "classnames": "^2.2.6",
