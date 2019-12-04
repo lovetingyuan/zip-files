@@ -3,9 +3,11 @@
 <textarea name="sha256" placeholder="输入原文" oninput={sha256} class="text"></textarea>
 <p>结果：</p>
 <textarea name="result" novalidate class="result" readonly spellcheck=false>{result}</textarea>
-<button data-for={btns,len} data-clipboard-text={result.substr(0,len)}>
-  { len ? '复制前 '+len+' 位' : '复制结果' }
-</button>
+<div class="btns">
+  <button data-for={btns,len} data-clipboard-text={result.substr(0,len)}>
+    { len ? '复制前 '+len+' 位' : '复制结果' }
+  </button>
+</div>
 
 <script>
   const shaurl = 'https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js'
@@ -53,9 +55,13 @@ button {
   color: white;
   cursor: pointer;
   border: 0 none;
-  margin: 10px 20px;
+  margin: 5px 20px;
 }
 p {
   margin: 0px 0;
+}
+.btns {
+  display: flex;
+  flex-direction: column;
 }
 </style>
