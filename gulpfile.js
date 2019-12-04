@@ -162,6 +162,7 @@ exports.prerender = function (done) {
                       ['/', ...fse.readdirSync(dist)]
                     ))
                       .replace('CACHE_VERSION', JSON.stringify(pkg.version))
+                      console.log(9999, fse.readdirSync(dist))
                     const swfilename = 'sw-' + pkg.version + '.js'
                     fse.outputFileSync(path.join(dist, swfilename), swresult)
                     return `<script>
@@ -249,6 +250,7 @@ function sw () {
 }
 
 exports.default = series(
+  () => src('public/icon.png').pipe(dest('dist/')),
   exports.prerender,
   parallel(exports.copypublic, exports.posthtml)
 )
