@@ -168,7 +168,7 @@ exports.prerender = function (done) {
                     return `<script>
                     if ('serviceWorker' in navigator) {
                       window.addEventListener('load', function() {
-                        navigator.serviceWorker.register('./${swfilename}?_t=${Date.now()}', { scope: '/${pkg._config.publicPath || ''}' });
+                        navigator.serviceWorker.register('./${swfilename}?_t=' + Date.now(), { scope: '/${pkg._config.publicPath || ''}' });
                       });
                     }</script></body></html>`.replace(/\s{2,}/g, ' ')
                   })
