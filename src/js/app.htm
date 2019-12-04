@@ -1,193 +1,20 @@
-<header>
-  <h1>zip files <span style="font-size: 12px;">这一切都仅仅发生在本机，您的文件始终安全😊。</span></h1>
-</header>
+<header></header>
 <main>
-
-  <div>
-    <input type="file" data-text="选 择 文 件 📁" multiple="multiple" onchange={onSelectFile}>
-    <a href="javascript:0" onclick={clearAll} data-if="{fileList.length > 1}" class="clear-all-btn">清除全部</a>
-  </div>
-  <ol class="file-list">
-    <li data-for={fileList,file} class="file-item" data-file-name={file.name}>
-      <span data-if={file.name!==renameFile}>{file.name}</span>
-      <input type="text" autofocus data-else value={file.name} class="file-name-input" placeholder="文件名">
-      <span class="action-btn" title="删除" onclick={onRemove}>❌</span>
-      <span class="action-btn" title="命名" onclick={onEdit}>
-        { file.name === renameFile ? '✔️' : '✍️' }
-      </span>
-    </li>
-  </ol>
-  <div data-if={fileList.length}>
-    <div>
-      <label>保存为：</label>
-      <input type="text" value="download.zip" class="dist-input" placeholder="保存的文件名">
-    </div>
-    <br>
-    <a href="javascript:null" tabindex="-1" onclick={start} class="download-btn">
-      { doing ? '请稍候⌛...' : '📦 压缩并保存这'+fileList.length+'个文件 📥' }
-    </a>
-  </div>
-  <p data-else>请选择要压缩打包的文件。</p>
+  <zip-file></zip-file>
+  <hr>
+  <sha-tfs></sha-tfs>
 </main>
-
 <footer> © {new Date().getFullYear()} tingyuan❤️xue. Thanks
   <a href="https://github.com/eligrey/FileSaver.js/" target="_blank" rel="noopener noreferrer">FileSaver.js</a>
   and
   <a href="https://github.com/Stuk/jszip" target="_blank" rel="noopener noreferrer">jszip</a>.
 </footer>
-
+  
 <script>
-import zipFiles from './zipfile'
 export default {
-  state: {
-    files: {},
-    renameFile: '',
-    doing: false,
-    get fileList () {
-      return Object.keys(this.files).map(name => {
-        return this.files[name]
-      }).sort((f1, f2) => {
-        return f1.index - f2.index
-      })
-    },
-    onSelectFile (evt) {
-      Object.keys(evt.target.files).forEach((index) => {
-        const file = evt.target.files[index]
-        if (this.files[file.name]) {
-          if (!window.confirm(`文件 ${file.name} 已经存在，要替换吗？`)) return
-        }
-        window.mobx.set(this.files, file.name, {
-          name: file.name,
-          file,
-          index: this.fileList.length
-        })
-      })
-    },
-    start (evt) {
-      if (this.doing) {
-        return
-      }
-      let distName = evt.target.parentElement.querySelector('.dist-input').value
-      while (distName === '') {
-        distName = window.prompt('保存的文件名称:')
-      }
-      if (!distName) return // cancel
-      if (!distName.endsWith('.zip')) {
-        distName = distName + '.zip'
-      }
-      this.doing = true
-      zipFiles(this.files, distName).then(() => {
-        this.doing = false
-      }).catch(err => {
-        this.doing = false
-        window.alert(`抱歉，打包失败了，可能文件太大或文件名太奇怪。${err.message}`)
-      })
-    },
-    onRemove (evt) {
-      const filename = evt.target.parentNode.dataset.fileName
-      if (filename === this.renameFile) {
-        this.renameFile = ''
-        return
-      }
-      if (window.confirm(`不打包 ${filename} ?`)) {
-        window.mobx.remove(this.files, filename)
-      }
-    },
-    clearAll () {
-      if (window.confirm('重新来？')) {
-        this.files = {}
-      }
-    },
-    onEdit (evt) {
-      const filename = evt.target.parentNode.dataset.fileName
-      if (this.renameFile === filename) { // editing
-        const input = evt.target.parentElement.querySelector('.file-name-input')
-        const newName = input.value.trim()
-        if (newName && newName !== filename) {
-          if (this.files[newName]) {
-            window.alert(`文件 ${newName} 已经存在，请换个名字。`)
-            return
-          }
-          const file = this.files[filename]
-          file.name = newName
-          window.mobx.set(this.files, newName, file)
-          window.mobx.remove(this.files, filename)
-        }
-        this.renameFile = ''
-      } else {
-        this.renameFile = filename
-      }
-    }
+  components: {
+    zipFile: './views/zip-file',
+    shaTfs: './views/sha256'
   }
 }
 </script>
-
-<style>
-  h1 {
-    text-transform: capitalize;
-    margin-top: 30px;
-    text-shadow: 4px 3px 0 #e4e4e4;
-  }
-main {
-  flex-grow: 1;
-  margin: 20px 0;
-}
-input[type=file] {
-  font-size: 0;
-  display: inline-block;
-  height: 45px;
-  width: 180px;
-  cursor: pointer;
-  overflow: hidden;
-  position: relative;
-}
-input[type=file]:before {
-  content: attr(data-text);
-  display: inline-block;
-  height: 100%;
-  width: 100%;
-  background: coral;
-  font-size: 14px;
-  color: white;
-  text-align: center;
-  padding-top: 15px;
-  box-sizing: border-box;
-  border-radius: 4px;
-  position: absolute;
-}
-.clear-all-btn {
-  text-decoration: none;
-  position: relative;
-  top: -12px;
-  left: 20px;
-  color: darkcyan;
-}
-footer {
-  font-size: 12px;
-  color: #666;
-  line-height: 32px;
-}
-.file-list {
-  margin: 40px 0;
-}
-.file-item {
-  margin: 10px 0;
-}
-.action-btn {
-  cursor: pointer;
-  margin-left: 10px;
-  vertical-align: middle;
-}
-.file-name-input, .dist-input {
-  padding: 4px 8px;
-  width: 200px;
-}
-.download-btn {
-  display: inline-block;
-  background-color: deepskyblue;
-  color: white;
-  padding: 12px 32px;
-  border-radius: 5px;
-  text-decoration: none;
-}
-</style>

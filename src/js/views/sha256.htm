@@ -1,0 +1,61 @@
+<h1>SHA-256</h1>
+<p>原文：</p>
+<textarea name="sha256" placeholder="输入原文" oninput={sha256} class="text"></textarea>
+<p>结果：</p>
+<textarea name="result" novalidate class="result" readonly spellcheck=false>{result}</textarea>
+<button data-for={btns,len} data-clipboard-text={result.substr(0,len)}>
+  { len ? '复制前 '+len+' 位' : '复制结果' }
+</button>
+
+<script>
+  const shaurl = 'https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js'
+  const copyurl = 'https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js'
+
+  export default {
+    state: {
+      btns: [8, 16, 20, 32, 64],
+      result: '',
+      sha256 (evt) {
+        const value = evt.target.value
+        if (!window.ClipboardJS) {
+          window.loadScript(copyurl).then(() => {
+            new window.ClipboardJS('[data-clipboard-text]') // eslint-disable-line
+          })
+        }
+        if (value) {
+          Promise.resolve(window.sha256 || window.loadScript(shaurl)).then(() => {
+            this.result = window.sha256(value)
+          })
+        } else {
+          this.result = ''
+        }
+      }
+    }
+  }
+</script>
+
+<style scoped>
+textarea {
+  width: 90%;
+  display: block;
+  margin: 20px auto;
+  padding: 15px 20px;
+}
+.result {
+  height: 4em;
+  padding: 6px 10px;
+  width: 96%;
+
+}
+button {
+  padding: 5px 15px;
+  background-color: rgb(172, 107, 233);
+  color: white;
+  cursor: pointer;
+  border: 0 none;
+  margin: 10px 20px;
+}
+p {
+  margin: 0px 0;
+}
+</style>

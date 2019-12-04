@@ -29,3 +29,20 @@ window.mobx = {
     }
   }
 }())
+
+function Delay () {
+  this.promise = new Promise((resolve, reject) => {
+    this.resolve = resolve
+    this.reject = reject
+  })
+}
+
+window.loadScript = function loadScript (src) {
+  const script = document.createElement('script')
+  script.src = src
+  const { promise, resolve, reject } = new Delay()
+  script.onload = resolve
+  script.onerror = reject
+  document.head.appendChild(script)
+  return promise
+}

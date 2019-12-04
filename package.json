@@ -48,6 +48,7 @@
     "prerender": {
       "ignoreRequests": "google-analytics"
     },
-    "inlineSize": 10000
+    "inlineSize": 10000,
+    "publicPath": "zip-files/"
   }
 }

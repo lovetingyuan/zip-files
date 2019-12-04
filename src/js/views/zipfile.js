@@ -1,22 +1,5 @@
-function Delay () {
-  this.promise = new Promise((resolve, reject) => {
-    this.resolve = resolve
-    this.reject = reject
-  })
-}
-
 const filesaver = 'https://cdn.jsdelivr.net/npm/file-saver@2.0.2/dist/FileSaver.min.js'
 const jszip = 'https://cdn.jsdelivr.net/npm/jszip@3.2.2/dist/jszip.min.js'
-
-function loadScript (src) {
-  const script = document.createElement('script')
-  script.src = src
-  const { promise, resolve, reject } = new Delay()
-  script.onload = resolve
-  script.onerror = reject
-  document.head.appendChild(script)
-  return promise
-}
 
 function readFile ({ file, name }) {
   return new Promise((resolve) => {
@@ -34,8 +17,8 @@ export default function zipFiles (files, zipName) {
     return readFile(files[name])
   })
   return Promise.all([
-    window.FileSaver || loadScript(filesaver),
-    window.JSZip || loadScript(jszip),
+    window.FileSaver || window.loadScript(filesaver),
+    window.JSZip || window.loadScript(jszip),
     ...filesContent
   ]).then(contents => {
     const zip = new window.JSZip()
