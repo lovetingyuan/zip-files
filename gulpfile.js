@@ -218,7 +218,9 @@ function sw () {
         return fetch(event.request).then(response => {
           // TODO 5 - Respond with custom 404 page
           return caches.open(staticCacheName).then(cache => {
-            cache.put(event.request.url, response.clone());
+            if (response.status === 200) { // only cache 200 response
+              cache.put(event.request.url, response.clone());
+            }
             return response;
           });
         });
