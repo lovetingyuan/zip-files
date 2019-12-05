@@ -21,7 +21,8 @@
         if (response) {
           console.log('Found ', event.request.url, ' in cache');
           if (event.request.url.split('?')[0].endsWith('/')) {
-            return fetch(event.request).then(response => {
+            // if it is index.html, we update it every time.
+            fetch(event.request).then(response => {
               return caches.open(staticCacheName).then(cache => {
                 cache.put(event.request.url, response.clone());
                 return response;
