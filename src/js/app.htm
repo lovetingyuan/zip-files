@@ -5,16 +5,25 @@
   <sha-tfs></sha-tfs>
 </main>
 <footer> © {new Date().getFullYear()} tingyuan❤️xue. Thanks
-  <a href="https://github.com/eligrey/FileSaver.js/" target="_blank" rel="noopener noreferrer">FileSaver.js</a>
-  and
-  <a href="https://github.com/Stuk/jszip" target="_blank" rel="noopener noreferrer">jszip</a>.
+  <a data-for={libs,lib} href={lib.link} target="_blank" rel="noopener noreferrer">{lib.name}</a>.
 </footer>
-  
+
 <script>
 export default {
   components: {
     zipFile: './views/zip-file',
     shaTfs: './views/sha256'
+  },
+  state: {
+    libs: [{
+      link: 'https://github.com/eligrey/FileSaver.js/', name: 'FileSaver.js'
+    }, {
+      link: 'https://github.com/Stuk/jszip', name: 'jszip'
+    }, {
+      link: 'https://github.com/emn178/js-sha256', name: 'js-sha256'
+    }, {
+      link: 'https://github.com/zenorocha/clipboard.js/', name: 'clipboard.js'
+    }]
   }
 }
 </script>
@@ -28,5 +37,8 @@ export default {
     font-size: 12px;
     color: #666;
     margin: 10px 0;
+  }
+  footer a {
+    margin-left: .6em;
   }
 </style>
