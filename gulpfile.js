@@ -1,6 +1,5 @@
 const path = require('path')
 const fse = require('fs-extra')
-const chalk = require('chalk')
 
 const { src, dest, series, parallel } = require('gulp')
 const through2 = require('through2')
@@ -8,49 +7,6 @@ const { JSDOM, VirtualConsole, ResourceLoader } = require('jsdom')
 const pkg = require('./package.json')
 if (!pkg._config) {
   pkg._config = {}
-}
-
-exports.i18n = function (done) {
-  if (!pkg._config.i18n) return done()
-  const {
-    langCodeMap,
-    resourceId
-  } = pkg._config.i18n
-  if (!process.env.cid) {
-    try {
-      let env = path.join(__dirname, '.env.production.local')
-      if (!fse.existsSync(env)) {
-        env = path.join(__dirname, '.env.local')
-      }
-      require('dotenv').config({ path: env })
-    } catch (e) {}
-  }
-  let requests = []
-  const resolve = (code = 'index') => path.join(__dirname, `public/locales/${code}.json`)
-  if (resourceId) {
-    const got = require('got')
-    const url = (lang) => `https://transify.seagroup.com/resources/${resourceId}/${lang === 'en' ? '' : lang + '/'}json/download`
-    requests = Object.keys(langCodeMap).map(async country => {
-      const _url = url(langCodeMap[country])
-      const { body } = await got.get(_url, {
-        json: true,
-        timeout: 10000
-      })
-      await fse.outputJson(resolve(langCodeMap[country]), body)
-    })
-  }
-  Promise.all(requests).then(() => {
-    const langCode = langCodeMap[process.env.cid]
-    if (!langCode) {
-      console.warn(
-        chalk.yellow(
-          '  i18n will use English as default language because missing ' +
-          (process.env.cid ? `translation of "${process.env.cid}".` : '"process.env.cid".')
-        )
-      )
-    }
-    return fse.outputJson(resolve(), require(resolve(langCode || 'en')))
-  }).then(() => done()).catch(done)
 }
 
 exports.copypublic = function () {
