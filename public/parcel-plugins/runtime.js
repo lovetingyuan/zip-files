@@ -1,4 +1,3 @@
-
 import { html, render } from 'lighterhtml'
 import { reaction, observable, action } from 'mobx'
 import classNames from 'classnames'
@@ -62,10 +61,10 @@ class Runtime {
     this.vms[vmid].props = props
     this.vms[vmid].originalProps = originalProps
 
-    const { view, state } = components[cid]
+    const { view, state, data } = components[cid]
     if (!state) {
       $id = vmid
-      return view.call(this, props, null)
+      return view.call(this, props, null, data)
     } else if (!this._init) {
       // delay to render, because dom is not accessible right now.
       Promise.resolve(vmid).then(id => this.update(id))
@@ -109,7 +108,7 @@ class Context extends Runtime {
 
   reactive (vmid, data) {
     const { unreaction, cid } = this.vms[vmid]
-    const { view } = components[cid]
+    const { view, data: staticData } = components[cid]
 
     unreaction && unreaction()
     this.vms[vmid].data = data || this.getState(vmid)
@@ -117,8 +116,8 @@ class Context extends Runtime {
     this.vms[vmid].unreaction = reaction(() => {
       this._string = true
       $id = vmid
-      const { props, data } = this.vms[vmid]
-      const a = view.call(this, props, data)
+      const { props, data: state } = this.vms[vmid]
+      const a = view.call(this, props, state, staticData)
       this._string = false
       return a
     }, () => {
@@ -146,12 +145,12 @@ class Context extends Runtime {
     })
     render.call(this, dom, () => {
       let { props, data, cid } = this.vms[vmid]
-      const { view, state } = components[cid]
+      const { view, state, data: staticData } = components[cid]
       if (!data && state) {
         data = this.reactive(vmid)
       }
       $id = vmid
-      return view.call(this, props, data)
+      return view.call(this, props, data, staticData)
     })
 
     dom.querySelectorAll('[' + DATAID + ']').forEach(child => {
@@ -175,15 +174,15 @@ class Context extends Runtime {
   render (node) {
     const vmid = node.dataset.id
     const { props, cid, root } = this.vms[vmid]
-    const { state, view } = components[cid]
+    const { state, view, data: staticData } = components[cid]
     if (state) {
       const data = this.reactive(vmid)
       render.call(this, node, () => {
         $id = vmid
-        return view.call(this, props, data)
+        return view.call(this, props, data, staticData)
       })
     } else if (root) {
-      render.call(this, node, () => view.call(this, props, null))
+      render.call(this, node, () => view.call(this, props, null, staticData))
     }
     node.querySelectorAll('[' + DATAID + ']').forEach(d => this.render(d))
   }

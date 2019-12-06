@@ -23,105 +23,18 @@ const requireAttrs = {
 }
 
 const isBinding = val => val[0] === '{' && val[val.length - 1] === '}'
+
 const globalVars = {
-  props: true, state: true, _: true, arguments: true, t: true,
-  require: true, module: true, __filename: true, __dirname: true, process: true
-}
-
-function exportDefaultDeclaration (path, taggedTemplateExpression, cid) {
-  const dec = path.node.declaration
-  if (!t.isObjectExpression(dec)) {
-    throw new Error('Component must export plain object as default.')
-  }
-  const findProp = key => {
-    return dec.properties.findIndex(prop => {
-      if (t.isIdentifier(prop.key)) {
-        return prop.key.name === key
-      } else if (t.isStringLiteral(prop.key)) {
-        return prop.key.value === key
-      }
-    })
-  }
-  const cindex = findProp('components')
-  const components = {}
-  if (cindex >= 0) {
-    const comps = dec.properties[cindex].value
-    if (!t.isObjectExpression(comps)) {
-      throw new Error('"components" in default export must be a plain object.')
-    }
-    comps.properties.forEach(prop => {
-      if (t.isStringLiteral(prop.value)) {
-        let compName
-        if (t.isIdentifier(prop.key)) {
-          compName = prop.key.name
-        } else if (t.isStringLiteral(prop.key)) {
-          const { isValid } = validate(prop.key.value)
-          if (isValid) {
-            compName = prop.key.value.replace(/-./g, (str) => str.slice(1).toUpperCase())
-          }
-        }
-        if (compName && t.isStringLiteral(prop.value)) {
-          if (compName in components) {
-            throw new Error('Duplicated component name: ' + compName)
-          }
-          components[compName] = prop.value.value.trim()
-        }
-      }
-    })
-    dec.properties.splice(cindex, 1)
-  }
-  Object.keys(components).forEach(key => {
-    const body = path.parent.body
-    body.push(
-      t.importDeclaration(
-        [
-          t.importDefaultSpecifier(t.identifier(key))
-        ],
-        t.stringLiteral(components[key]),
-      )
-    )
-  })
-  const stateindex = findProp('state')
-  if (stateindex >= 0) {
-    const stateProp = dec.properties[stateindex]
-    if (t.isObjectExpression(stateProp.value)) {
-      dec.properties[stateindex] = t.objectMethod(
-        'method', t.identifier('state'), [],
-        t.blockStatement([
-          t.returnStatement(stateProp.value)
-        ])
-      )
-    }
-  }
-
-  dec.properties.push(t.objectMethod(
-    'method',
-    t.identifier('view'),
-    [
-      t.identifier('props'),
-      t.identifier('_')
-    ],
-    t.blockStatement(
-      [
-        t.returnStatement(
-          typeof taggedTemplateExpression === 'string' ?
-            t.taggedTemplateExpression(
-              t.memberExpression(t.identifier('this'), t.identifier('h')),
-              t.templateLiteral([
-                t.templateElement({ raw: taggedTemplateExpression }),
-              ], [])
-            ) : taggedTemplateExpression
-        )
-      ]
-    )
-  ))
-  path.node.declaration = t.callExpression(
-    t.identifier('component'),
-    [
-      t.stringLiteral(cid),
-      dec
-    ]
-  )
+  props: true,
+  $: true,
+  _: true,
+  arguments: true,
+  t: true,
+  require: true,
+  module: true,
+  __filename: true,
+  __dirname: true,
+  process: true
 }
 
 module.exports = class HtmAsset extends Asset {
@@ -140,6 +53,7 @@ module.exports = class HtmAsset extends Asset {
       componentId: hash(this.name)
     }
   }
+
   async parse (code) {
     this.htm.sourceCode = code
     const dom = new JSDOM(code.trim(), {
@@ -148,14 +62,14 @@ module.exports = class HtmAsset extends Asset {
     const body = dom.window.document.body
     const script = body.querySelectorAll('script')
     if (script.length > 1) {
-      throw new Error(`Component only contains no more one script tag.`)
+      throw new Error('Component only contains no more one script tag.')
     }
     if (script.length) {
       this.htm.script.source = script[0].textContent.trim()
       body.removeChild(script[0])
     }
     if (!this.htm.script.source) {
-      this.htm.script.source = `export default {}`
+      this.htm.script.source = 'export default {}'
     }
     this.htm.styles = [...body.querySelectorAll('style')].map(style => {
       const ret = {
@@ -167,16 +81,18 @@ module.exports = class HtmAsset extends Asset {
     })
     this.htm.dom = dom
   }
+
   async transform () {
     const scoped = this._transformStyle(this.htm.styles, this.htm.componentId)
     const { body } = this.htm.dom.window.document
     this._transformTemplate(body, scoped)
     let template = body.innerHTML.trim().replace(/(data-h-[0-9a-z]+)=""/g, '$1')
     template = he.decode(template)
-    const { code, map } = this._transformScript(this.htm.script.source, template, this.htm.componentId)
+    const { code, map } = await this._transformScript(this.htm.script.source, template, this.htm.componentId)
     this.htm.script.result = code
     this.htm.script.map = map
   }
+
   async generate () {
     const parts = []
     if (this.htm.styles.length) {
@@ -189,6 +105,8 @@ module.exports = class HtmAsset extends Asset {
     if (this.options.hmr) {
       result = result + '\n' + this._genHMR()
     }
+    // console.log(map, map.file, map.sourceRoot)
+    // map.file = this.basename
     parts.push({ // must place js code in the end.
       type: 'js',
       value: result,
@@ -203,6 +121,7 @@ module.exports = class HtmAsset extends Asset {
     }
     return parts
   }
+
   _genHMR () {
     return `
 /* hot reload */
@@ -216,58 +135,165 @@ if (module.hot) {
   module.hot.accept(reloadCSS)` : ''}
 }`
   }
+
+  _transformTagTemplate (template, needAddCtx) {
+    if (!needAddCtx) {
+      return t.taggedTemplateExpression(
+        t.memberExpression(t.identifier('this'), t.identifier('h')),
+        t.templateLiteral([
+          t.templateElement({ raw: template })
+        ], [])
+      )
+    }
+    const components = this.htm.components
+    let globals = null
+    const visitor = {
+      Program (path) {
+        const runtimeGlobals = path.scope.constructor.globals.reduce((a, b) => {
+          a[b] = true
+          return a
+        }, {})
+        globals = Object.assign({}, path.scope.globals, runtimeGlobals, components, globalVars)
+      },
+      Identifier (path) {
+        if (typeof globals[path.node.name] !== 'object') return
+        if (path.scope.hasBinding(path.node.name)) return
+        if (t.isVariableDeclarator(path.parent)) {
+          if (path.key !== 'init') return
+        }
+        if (t.isMemberExpression(path.parent)) {
+          if (path.key === 'property' && !path.parent.computed) return
+        }
+        if (t.isObjectProperty(path.parent)) {
+          if (path.key === 'key' && !path.parent.computed) return
+        }
+        path.replaceWith(t.memberExpression(t.identifier('_'), path.node))
+      }
+    }
+    const result = babel.transformSync('this.h`' + template + '`', {
+      ast: true,
+      code: false,
+      sourceMaps: false,
+      configFile: false,
+      babelrc: false,
+      plugins: [() => ({ visitor })]
+    })
+    return result.ast.program.body[0].expression
+  }
+
+  _exportDefaultDeclaration (path, template, cid) {
+    const dec = path.node.declaration
+    if (!t.isObjectExpression(dec)) {
+      throw new Error('Component must export plain object as default.')
+    }
+    const findProp = key => {
+      return dec.properties.findIndex(prop => {
+        if (t.isIdentifier(prop.key)) {
+          return prop.key.name === key
+        } else if (t.isStringLiteral(prop.key)) {
+          return prop.key.value === key
+        }
+      })
+    }
+    const cindex = findProp('components')
+    const components = {}
+    if (cindex >= 0) {
+      const comps = dec.properties[cindex].value
+      if (!t.isObjectExpression(comps)) {
+        throw new Error('"components" in default export must be a plain object.')
+      }
+      comps.properties.forEach(prop => {
+        if (t.isStringLiteral(prop.value)) {
+          let compName
+          if (t.isIdentifier(prop.key)) {
+            compName = prop.key.name
+          } else if (t.isStringLiteral(prop.key)) {
+            const { isValid } = validate(prop.key.value)
+            if (isValid) {
+              compName = prop.key.value.replace(/-./g, (str) => str.slice(1).toUpperCase())
+            }
+          }
+          if (compName && t.isStringLiteral(prop.value)) {
+            if (compName in components) {
+              throw new Error('Duplicated component name: ' + compName)
+            }
+            components[compName] = prop.value.value.trim()
+            if (!components[compName].endsWith('.htm')) {
+              components[compName] = components[compName] + '.htm'
+            }
+          }
+        }
+      })
+      dec.properties.splice(cindex, 1)
+    }
+    Object.keys(components).forEach(key => {
+      const body = path.parent.body
+      body.push(
+        t.importDeclaration(
+          [
+            t.importDefaultSpecifier(t.identifier(key))
+          ],
+          t.stringLiteral(components[key])
+        )
+      )
+    })
+    const stateindex = findProp('state')
+    if (stateindex >= 0) {
+      const stateProp = dec.properties[stateindex]
+      if (t.isObjectExpression(stateProp.value)) {
+        dec.properties[stateindex] = t.objectMethod(
+          'method', t.identifier('state'), [],
+          t.blockStatement([
+            t.returnStatement(stateProp.value)
+          ])
+        )
+      }
+    }
+
+    dec.properties.push(t.objectMethod(
+      'method',
+      t.identifier('view'),
+      [
+        t.identifier('props'),
+        t.identifier('_'),
+        t.identifier('$')
+      ],
+      t.blockStatement(
+        [
+          t.returnStatement(
+            this._transformTagTemplate(template, stateindex >= 0)
+          )
+        ]
+      )
+    ))
+    path.node.declaration = t.callExpression(
+      t.identifier('component'),
+      [
+        t.stringLiteral(cid),
+        dec
+      ]
+    )
+  }
+
   _transformScript (code, template, cid) {
     const self = this
-    const result = babel.transformSync('this.h`' + template + '`', {
-      ast: true, code: false, sourceMaps: false,
-      plugins: [
-        function() {
-          let globals
-          return {
-            visitor: {
-              Program(path) {
-                const runtimeGlobals = path.scope.constructor.globals.reduce((a, b) => {
-                  a[b] = true
-                  return a
-                }, {})
-                globals = Object.assign({}, path.scope.globals, runtimeGlobals, self.htm.components, globalVars)
-              },
-              Identifier (path) {
-                if (typeof globals[path.node.name] !== 'object') return
-                if (path.scope.hasBinding(path.node.name)) return
-                if (t.isVariableDeclarator(path.parent)) {
-                  if (path.key !== 'init') return
-                }
-                if (t.isMemberExpression(path.parent)) {
-                  if (path.key === 'property' && !path.parent.computed) return
-                }
-                if (t.isObjectProperty(path.parent)) {
-                  if (path.key === 'key' && !path.parent.computed) return
-                }
-                path.replaceWith(t.memberExpression(t.identifier('_'), path.node))
-              }
-            }
-          }
-        }
-      ]
-    })
-
-    return babel.transform(code, {
-      plugins: [
-        function ({assertVersion}) { /* babel, pluginOptions, baseDir */
-          assertVersion(7)
-          return {
-            visitor: {
-              ExportDefaultDeclaration(path) {
-                const taggedTemplateExpression = result.ast.program.body[0].expression
-                return exportDefaultDeclaration(path, taggedTemplateExpression, cid)
-              },
-            }
-          }
-        }
-      ]
+    const visitor = {
+      ExportDefaultDeclaration (path) {
+        return self._exportDefaultDeclaration(path, template, cid)
+      }
+    }
+    return babel.transformAsync(code, {
+      sourceMaps: this.options.sourceMaps,
+      sourceFileName: this.relativeName, // cry...
+      configFile: false,
+      babelrc: false,
+      plugins: [({ assertVersion }) => { /* babel, pluginOptions, baseDir */
+        assertVersion(7)
+        return { visitor }
+      }]
     })
   }
+
   _transformTemplate (node, scoped) {
     if (node.tagName === 'BODY') {
       ;[...node.childNodes].forEach(child => this._transformTemplate(child, scoped))
@@ -287,7 +313,7 @@ if (module.hot) {
           if (!isBinding(value)) {
             throw new Error(`"${attr.name}" attribute value "${value}" should be binding value, ` + node.outerHTML)
           }
-          let _value = value.slice(1, -1).trim()
+          const _value = value.slice(1, -1).trim()
           if (!_value) {
             throw new Error(`${attr.name} can not be empty value, ` + node.outerHTML)
           }
@@ -322,7 +348,7 @@ if (module.hot) {
           if (isComponent) {
             attrsList.push(
               attr.name.replace(/-([a-zA-Z0-9])/g, (_, str) => str.toUpperCase()) + ':' +
-              (isBinding(value) ? `(${value.slice(1, -1)||null})` : JSON.stringify(value))
+              (isBinding(value) ? `(${value.slice(1, -1) || null})` : JSON.stringify(value))
             )
             if (!attr.name.startsWith('data-')) {
               node.removeAttribute(attr.name)
@@ -391,9 +417,12 @@ if (module.hot) {
         }
       }
     } else if (node.nodeType === 8) { // comment
-      node.remove()
+      if (process.env.NODE_ENV === 'production') {
+        node.remove()
+      }
     }
   }
+
   _transformStyle (styles, scopeId) {
     let scoped = false
     styles.map(style => {

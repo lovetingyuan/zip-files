@@ -54,7 +54,7 @@ exports.i18n = function (done) {
 }
 
 exports.copypublic = function () {
-  return src(['public/**', '!public/index.html', '!public/parcel-plugins/**'])
+  return src(['public/**/*', '!public/index.html', '!public/parcel-plugins/**'])
     .pipe(dest('dist/'))
 }
 
@@ -160,9 +160,7 @@ exports.prerender = function (done) {
                     const swfuncstr = swfunc.substring(swfunc.indexOf('{') + 1, swfunc.lastIndexOf('}'))
                     const swresult = swfuncstr.replace('CACHE_LIST', JSON.stringify(
                       ['/', ...fse.readdirSync(dist)]
-                    ))
-                      .replace('CACHE_VERSION', JSON.stringify(pkg.version))
-                      console.log(9999, fse.readdirSync(dist))
+                    )).replace('CACHE_VERSION', JSON.stringify(pkg.version))
                     const swfilename = 'sw-' + pkg.version + '.js'
                     fse.outputFileSync(path.join(dist, swfilename), swresult)
                     return `<script>
@@ -253,7 +251,6 @@ function sw () {
 }
 
 exports.default = series(
-  () => src('public/icon.png').pipe(dest('dist/')),
   exports.prerender,
   parallel(exports.copypublic, exports.posthtml)
 )

@@ -4,7 +4,7 @@
 <p>结果：</p>
 <textarea name="result" novalidate class="result" readonly spellcheck=false>{result}</textarea>
 <div class="btns">
-  <button data-for={btns,len} data-clipboard-text={result.substr(0,len)}>
+  <button data-for={$.btns,len} data-clipboard-text={result.substr(0,len)}>
     { len !== 64 ? '复制前 ' + len + ' 位' : '复 制 结 果' }
   </button>
 </div>
@@ -14,8 +14,10 @@
   const copyurl = 'https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js'
 
   export default {
+    data: {
+      btns: [8, 16, 20, 32, 64]
+    },
     state: {
-      btns: [8, 16, 20, 32, 64],
       result: '',
       sha256 (evt) {
         const value = evt.target.value
