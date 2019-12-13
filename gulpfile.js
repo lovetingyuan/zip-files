@@ -116,8 +116,8 @@ exports.prerender = function (done) {
                     const swfuncstr = swfunc.substring(swfunc.indexOf('{') + 1, swfunc.lastIndexOf('}'))
                     const swresult = swfuncstr.replace('CACHE_LIST', JSON.stringify(
                       ['/', ...fse.readdirSync(dist)]
-                    )).replace('CACHE_VERSION', JSON.stringify(pkg.version))
-                    const swfilename = 'sw-' + pkg.version + '.js'
+                    ))
+                    const swfilename = 'sw.js'
                     fse.outputFileSync(path.join(dist, swfilename), swresult)
                     return `<script>
                     if ('serviceWorker' in navigator) {
@@ -139,7 +139,7 @@ exports.prerender = function (done) {
 function sw () {
   const filesToCache = CACHE_LIST;
   
-  const staticCacheName = CACHE_VERSION;
+  const staticCacheName = 'zip-files';
   
   self.addEventListener('install', event => {
     console.log('Attempting to install service worker and cache static assets');
