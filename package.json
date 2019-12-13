@@ -6,9 +6,9 @@
   "scripts": {
     "serve": "npx parcel public/index.html --cache-dir node_modules/.cache/parcel",
     "build": "npx parcel build public/index.html --cache-dir node_modules/.cache/parcel --detailed-report --no-source-maps --public-url ./",
-    "dev": "npx rimraf node_modules/.cache dist && npm run serve",
+    "dev": "npx rimraf node_modules/.cache && npx gulp clean && npm run serve",
     "lint": "npx standard --plugin html 'src/**/*.{js,htm}' --fix",
-    "prebuild": "npm run lint && npx rimraf dist",
+    "prebuild": "npm run lint && npx gulp clean",
     "postbuild": "npx gulp",
     "checkdep": "npx npm-check-updates"
   },
@@ -48,6 +48,6 @@
       "ignoreRequests": "google-analytics"
     },
     "inlineSize": 10000,
-    "publicPath": "zip-files/"
+    "publicPath": "/zip-files/"
   }
 }

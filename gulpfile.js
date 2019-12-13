@@ -9,62 +9,87 @@ if (!pkg._config) {
   pkg._config = {}
 }
 
+const distDir = path.join(__dirname, pkg._config.dist || 'dist')
+
+exports.clean = function() {
+  return fse.remove(distDir)
+}
+
 exports.copypublic = function () {
   return src(['public/**/*', '!public/index.html', '!public/parcel-plugins/**'])
-    .pipe(dest('dist/'))
+    .pipe(dest(distDir))
 }
 
 exports.posthtml = function (done) {
   const { inlineSize } = pkg._config
   if (!inlineSize) return done()
-
-  return src('dist/index.html')
+  const indexfilepath = path.join(distDir, 'index.html')
+  return src(indexfilepath)
     .pipe(through2.obj(function (file, _, cb) {
-      const resolve = f => path.join(__dirname, 'dist', f)
-      if (file.isBuffer()) {
-        const dom = new JSDOM(file.contents.toString())
-        const doc = dom.window.document
-        const meta = doc.createElement('meta')
-        meta.setAttribute('name', 'builtime')
-        meta.setAttribute('content', [
-          Date.now(),
-          process.env.npm_package_name,
-          process.env.npm_package_version,
-          require('git-rev-sync').short(null, 10)
-        ] + '')
-        doc.head.appendChild(meta)
-        doc.querySelectorAll('script[src]').forEach(dom => {
-          const file = resolve(path.basename(dom.src))
-          if (!fse.existsSync(file)) return
-          if (fse.lstatSync(file).size <= inlineSize) {
-            dom.removeAttribute('src')
-            dom.innerHTML = fse.readFileSync(file, 'utf8')
-          } else {
-            const preload = doc.createElement('link')
-            preload.href = dom.src
-            preload.rel = 'preload'
-            preload.setAttribute('as', 'script')
-            doc.head.appendChild(preload)
-          }
-        })
-        doc.querySelectorAll('link[rel=stylesheet][href]').forEach(dom => {
-          const file = resolve(path.basename(dom.href))
-          if (!fse.existsSync(file)) return
-          if (fse.lstatSync(file).size <= inlineSize) {
-            const style = doc.createElement('style')
-            style.innerHTML = fse.readFileSync(file, 'utf8')
-            dom.replaceWith(style)
-          } else {
-            dom.rel = 'preload'
-            dom.setAttribute('as', 'style')
-            dom.setAttribute('onload', "this.rel='stylesheet'")
-          }
-        })
-        file.contents = Buffer.from(dom.serialize())
-      }
+      const resolve = f => path.join(distDir, f)
+      if (!file.isBuffer()) throw file
+      const dom = new JSDOM(file.contents.toString())
+      const doc = dom.window.document
+      injectServiceWorker(dom.window)
+      const meta = doc.createElement('meta')
+      meta.setAttribute('name', 'builtime')
+      meta.setAttribute('content', [
+        Date.now(),
+        process.env.npm_package_name,
+        process.env.npm_package_version,
+        require('git-rev-sync').short(null, 10)
+      ] + '')
+      doc.head.appendChild(meta)
+      doc.querySelectorAll('script[src]').forEach(dom => {
+        const file = resolve(path.basename(dom.src))
+        if (!fse.existsSync(file)) return
+        if (fse.lstatSync(file).size <= inlineSize) {
+          dom.removeAttribute('src')
+          dom.innerHTML = fse.readFileSync(file, 'utf8')
+        } else {
+          const preload = doc.createElement('link')
+          preload.href = dom.src
+          preload.rel = 'preload'
+          preload.setAttribute('as', 'script')
+          doc.head.appendChild(preload)
+        }
+      })
+      doc.querySelectorAll('link[rel=stylesheet][href]').forEach(dom => {
+        const file = resolve(path.basename(dom.href))
+        if (!fse.existsSync(file)) return
+        if (fse.lstatSync(file).size <= inlineSize) {
+          const style = doc.createElement('style')
+          style.innerHTML = fse.readFileSync(file, 'utf8')
+          dom.replaceWith(style)
+        } else {
+          dom.rel = 'preload'
+          dom.setAttribute('as', 'style')
+          dom.setAttribute('onload', "this.rel='stylesheet'")
+        }
+      })
+      file.contents = Buffer.from(dom.serialize())
       cb(null, file)
     }))
-    .pipe(dest('dist'))
+    .pipe(dest(distDir))
+}
+
+function injectServiceWorker (window) {
+  const swfilename = 'sw.js'
+  if (window) {
+    const script = window.document.createElement('script')
+    script.innerHTML = `
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./${swfilename}?_t=' + Date.now(), { scope: '${pkg._config.publicPath || ''}' });
+      });
+    }
+    `.replace(/\s{2,}/mg, ' ')
+    window.document.body.appendChild(script)
+  }
+  const swfunc = sw.toString()
+  const swfuncstr = swfunc.substring(swfunc.indexOf('{') + 1, swfunc.lastIndexOf('}'))
+  const swresult = swfuncstr.replace('CACHE_LIST', JSON.stringify(['/', ...fse.readdirSync(distDir)]))
+  fse.outputFileSync(path.join(distDir, swfilename), swresult)
 }
 
 exports.prerender = function (done) {
@@ -81,11 +106,10 @@ exports.prerender = function (done) {
       return super.fetch(url, options)
     }
   }
-  const dist = path.join(__dirname, 'dist')
 
   const express = require('express')
   const app = express()
-  app.use(express.static(dist))
+  app.use(express.static(distDir))
   const port = process.env.PORT || 4200
   const server = app.listen(process.env.PORT || 4200, (err) => {
     if (err) return done(err)
@@ -104,32 +128,14 @@ exports.prerender = function (done) {
           return attr
         }
         window.__prerender__ = function (rendered) {
-          setTimeout(() => {
-            window.close()
-            const indexHtml = fse.readFileSync(path.join(dist, 'index.html'), 'utf8')
-            server.close(() => {
-              fse.writeFileSync(
-                path.join(dist, 'index.html'),
-                indexHtml.replace(/<div id=("root"|root)><\/div>/m, rendered)
-                  .replace(/<\/body><\/html>$/, function () {
-                    const swfunc = sw.toString()
-                    const swfuncstr = swfunc.substring(swfunc.indexOf('{') + 1, swfunc.lastIndexOf('}'))
-                    const swresult = swfuncstr.replace('CACHE_LIST', JSON.stringify(
-                      ['/', ...fse.readdirSync(dist)]
-                    ))
-                    const swfilename = 'sw.js'
-                    fse.outputFileSync(path.join(dist, swfilename), swresult)
-                    return `<script>
-                    if ('serviceWorker' in navigator) {
-                      window.addEventListener('load', function() {
-                        navigator.serviceWorker.register('./${swfilename}?_t=' + Date.now(), { scope: '/${pkg._config.publicPath || ''}' });
-                      });
-                    }</script></body></html>`.replace(/\s{2,}/g, ' ')
-                  })
-              )
-              done()
-            })
-          })
+          window.close()
+          server.close()
+          const indexfilepath = path.join(distDir, 'index.html')
+          fse.writeFileSync(
+            indexfilepath,
+            fse.readFileSync(indexfilepath, 'utf8').replace(/<div id=("root"|root)><\/div>/m, rendered)
+          )
+          done()
         }
       }
     }).catch(done)
@@ -207,6 +213,7 @@ function sw () {
 }
 
 exports.default = series(
+  exports.copypublic,
   exports.prerender,
-  parallel(exports.copypublic, exports.posthtml)
+  exports.posthtml
 )

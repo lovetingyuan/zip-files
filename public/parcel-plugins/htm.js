@@ -124,9 +124,10 @@ module.exports = class HtmAsset extends Asset {
     return `
 /* hot reload */
 if (module.hot) {
-  module.hot.accept(() => {
+  module.hot.accept()
+  if (module.hot.data) {
     window.dispatchEvent(new CustomEvent('__ssss_hmr__',{detail:{cid:'${this.htm.componentId}'}}))
-  })
+  }
   ${this.htm.styles.length ? `
   const reloadCSS = require('_css_loader')
   module.hot.dispose(reloadCSS)
