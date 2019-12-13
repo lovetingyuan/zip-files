@@ -15,7 +15,7 @@ exports.clean = function (done) {
 exports.copy = function () {
   return src([
     'dist/**/*',
-    '!dist/favicon.ico',
+    // '!dist/favicon.ico',
     // '!dist/icon.png',
     '!dist/**/*.map'
   ]).pipe(dest('./'))
