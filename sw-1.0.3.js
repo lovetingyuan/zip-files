@@ -1,5 +1,5 @@
 
-  const filesToCache = ["/","favicon.84292e5e.ico","icon.585561b6.png","index.html","main.7d517a94.js","main.94a968dd.css","site.webmanifest","vendor.36cb5d1f.css","vendor.5951eadb.js"];
+  const filesToCache = ["/","favicon.84292e5e.ico","icon.585561b6.png","index.html","main.7db3ea6c.js","main.7de733e5.css","site.webmanifest","vendor.36cb5d1f.css","vendor.cebd775b.js"];
   
   const staticCacheName = "1.0.3";
   
