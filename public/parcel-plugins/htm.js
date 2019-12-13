@@ -105,8 +105,6 @@ module.exports = class HtmAsset extends Asset {
     if (this.options.hmr) {
       result = result + '\n' + this._genHMR()
     }
-    // console.log(map, map.file, map.sourceRoot)
-    // map.file = this.basename
     parts.push({ // must place js code in the end.
       type: 'js',
       value: result,
@@ -181,7 +179,7 @@ if (module.hot) {
     return result.ast.program.body[0].expression
   }
 
-  _exportDefaultDeclaration (path, template, cid) {
+  _transformDefaultExport (template, cid, path) {
     const dec = path.node.declaration
     if (!t.isObjectExpression(dec)) {
       throw new Error('Component must export plain object as default.')
@@ -276,12 +274,7 @@ if (module.hot) {
   }
 
   _transformScript (code, template, cid) {
-    const self = this
-    const visitor = {
-      ExportDefaultDeclaration (path) {
-        return self._exportDefaultDeclaration(path, template, cid)
-      }
-    }
+    const transformDefault = this._transformDefaultExport.bind(this, template, cid)
     return babel.transformAsync(code, {
       sourceMaps: this.options.sourceMaps,
       sourceFileName: this.relativeName, // cry...
@@ -289,7 +282,7 @@ if (module.hot) {
       babelrc: false,
       plugins: [({ assertVersion }) => { /* babel, pluginOptions, baseDir */
         assertVersion(7)
-        return { visitor }
+        return { visitor: { ExportDefaultDeclaration: transformDefault } }
       }]
     })
   }

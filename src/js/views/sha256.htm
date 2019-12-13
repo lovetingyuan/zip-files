@@ -4,7 +4,7 @@
 <p>结果：</p>
 <textarea name="result" novalidate class="result" readonly spellcheck=false>{result}</textarea>
 <div class="btns">
-  <button data-for={$.btns,len} data-clipboard-text={result.substr(0,len)}>
+  <button data-for={$.btns,len} data-clipboard-text={result.substr(0,len)} disabled={!readycopy||!result}>
     { len !== 64 ? '复制前 ' + len + ' 位' : '复 制 结 果' }
   </button>
 </div>
@@ -19,11 +19,13 @@
     },
     state: {
       result: '',
+      readycopy: false,
       sha256 (evt) {
         const value = evt.target.value
         if (!window.ClipboardJS) {
           window.loadScript(copyurl).then(() => {
             new window.ClipboardJS('[data-clipboard-text]') // eslint-disable-line
+            this.readycopy = true
           })
         }
         if (value) {
@@ -59,6 +61,10 @@ button {
   border: 0 none;
   margin: 5px 20px;
   border-radius: 2px;
+}
+button[disabled] {
+  opacity: .8;
+  cursor: not-allowed;
 }
 p {
   margin: 0px 0;
