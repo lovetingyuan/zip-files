@@ -31,16 +31,17 @@
   <![endif]-->
 
   <!-- Add your site or application content here -->
+  <!--[if APP-START]><![endif]-->
   <div id="root"></div>
+  <!--[if APP-END]><![endif]-->
 
   <script src="../src/js/vendor.js"></script>
   <script src="../src/js/main.js"></script>
 
   <script id="built-time">
     (function(){
-      var meta = document.querySelector('meta[name="builtime"]');
-      if (!meta) return;
-      var vals = meta.content.split(',');
+      var vals = window.BUILTIME;
+      if (!vals) return;
       var d = new Date(+vals[0]);
       var str = [d.getFullYear(), '/', d.getMonth() + 1, '/', d.getDate(), ' ', d.getHours(), ':', d.getMinutes()];
       console.log(
