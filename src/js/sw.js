@@ -14,15 +14,19 @@ self.addEventListener('install', event => {
   )
 })
 
+const isHashedFile = file => /\.[a-z0-9]{8}\./.test(file)
+
 self.addEventListener('fetch', event => {
-  // console.log('Fetch event for ', event.request.url);
+  console.log('Fetch event for ', event.request.url);
   event.respondWith(
     caches.match(event.request)
       .then(response => {
         if (response) {
           console.log('Found ', event.request.url, ' in cache')
-          if (event.request.url.split('?')[0].endsWith('/')) {
-          // if it is index.html, we update it every time.
+          const requestpath = event.request.url.split('?')[0]
+          if (!isHashedFile(requestpath)) {
+            // if file is not long-term cached, we update it everytime.
+            console.log('Update request ' + event.request.url + ' in cache')
             fetch(event.request).then(response => {
               return caches.open(staticCacheName).then(cache => {
                 cache.put(event.request.url, response.clone())
@@ -43,9 +47,8 @@ self.addEventListener('fetch', event => {
           })
         })
       }).catch(error => {
-
+        console.warn('Fetch event error: ' + error)
         // TODO 6 - Respond with custom offline page
-
       })
   )
 })
