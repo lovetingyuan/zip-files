@@ -40,6 +40,7 @@ function Delay () {
 window.loadScript = function loadScript (src) {
   const script = document.createElement('script')
   script.src = src
+  script.setAttribute('crossorigin', 'anonymous')
   const { promise, resolve, reject } = new Delay()
   script.onload = resolve
   script.onerror = reject
