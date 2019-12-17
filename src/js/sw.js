@@ -2,7 +2,7 @@
 
 const filesToCache = CACHE_LIST
 
-const staticCacheName = 'zip-files'
+const staticCacheName = 'zip-files_' + APP_VERSION
 
 self.addEventListener('install', event => {
   console.log('Attempting to install service worker and cache static assets')
@@ -14,7 +14,7 @@ self.addEventListener('install', event => {
   )
 })
 
-const isHashedFile = file => /\.[a-z0-9]{8}\./.test(file)
+const isHashedFile = file => /\S\.[a-z0-9]{8}\.\S/.test(file)
 
 self.addEventListener('fetch', event => {
   console.log('Fetch event for ', event.request.url);
@@ -29,7 +29,7 @@ self.addEventListener('fetch', event => {
             console.log('Update request ' + event.request.url + ' in cache')
             fetch(event.request).then(response => {
               return caches.open(staticCacheName).then(cache => {
-                cache.put(event.request.url, response.clone())
+                cache.put(event.request, response.clone())
                 return response
               })
             }).catch(() => response)
@@ -40,8 +40,8 @@ self.addEventListener('fetch', event => {
         return fetch(event.request).then(response => {
         // TODO 5 - Respond with custom 404 page
           return caches.open(staticCacheName).then(cache => {
-            if (response.status === 200) { // only cache 200 response
-              cache.put(event.request.url, response.clone())
+            if (response.status === 200 && response.type !== 'opaque') { // only cache 200 response
+              cache.put(event.request, response.clone())
             }
             return response
           })

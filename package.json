@@ -44,10 +44,9 @@
   },
   "_config": {
     "i18n": false,
-    "prerender": {
-      "ignoreRequests": "google-analytics"
-    },
+    "prerender": true,
     "inlineSize": 10000,
-    "publicPath": "/zip-files/"
+    "publicPath": "/zip-files/",
+    "dist": "dist"
   }
 }

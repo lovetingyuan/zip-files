@@ -74,9 +74,10 @@ function injectServiceWorker (doc, publicPath) {
     script.id = 'service-worker'
     doc.body.appendChild(script)
   }
-  const swfuncstr = fse.readFileSync(require.resolve('./src/js/sw.js'), 'utf8')
-  const swresult = swfuncstr.replace('CACHE_LIST', JSON.stringify(['/', ...fse.readdirSync(distDir)]))
-  fse.outputFileSync(path.join(distDir, swfilename), swresult)
+  let swcode = fse.readFileSync(require.resolve('./src/js/sw.js'), 'utf8')
+  swcode = swcode.replace('CACHE_LIST', JSON.stringify(fse.readdirSync(distDir)))
+    .replace('APP_VERSION', JSON.stringify(pkg.version))
+  fse.outputFileSync(path.join(distDir, swfilename), swcode)
 }
 
 exports.posthtml = function () {
@@ -95,18 +96,26 @@ exports.posthtml = function () {
 
 exports.prerender = function (done) {
   if (!pkg._config.prerender) return done()
-  const {
-    ignoreRequests
-  } = pkg._config.prerender
-  const _ignoreReq = new RegExp(ignoreRequests)
+  const _ignoreReq = new RegExp('google-analytics')
   class CustomResourceLoader extends ResourceLoader {
     fetch (url, options) {
-      if (ignoreRequests && _ignoreReq.test(url)) {
+      if (_ignoreReq.test(url)) {
         return Promise.resolve(Buffer.from(''))
       }
       return super.fetch(url, options)
     }
   }
+
+  // monkey patch to enable cors
+  try {
+    const xhrUtilsPatch = require('jsdom/lib/jsdom/living/xhr-utils')
+    const originValidCORSHeaders = xhrUtilsPatch.validCORSHeaders
+    xhrUtilsPatch.validCORSHeaders = function validCORSHeaders(xhr, response) {
+      response.headers['access-control-allow-origin'] = '*'
+      response.headers['access-control-allow-credentials'] = 'true'
+      return originValidCORSHeaders.apply(this, arguments)
+    }
+  } catch (err) {}
 
   const express = require('express')
   const app = express()
