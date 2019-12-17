@@ -1,7 +1,7 @@
 const path = require('path')
 const fse = require('fs-extra')
 
-const { src, dest, series } = require('gulp')
+const { src, dest, series, parallel } = require('gulp')
 const through2 = require('through2')
 const { JSDOM, VirtualConsole, ResourceLoader } = require('jsdom')
 const pkg = require('./package.json')
@@ -13,6 +13,15 @@ const distDir = path.join(__dirname, pkg._config.dist || 'dist')
 
 exports.clean = function() {
   return fse.remove(distDir)
+}
+
+exports.cleanuselessassets = function () {
+  return fse.readdir(distDir).then(files => {
+    const removedfiles = files
+      .filter(f => /^icon-\S+?[0-9a-z]{8}\.png$/.test(f))
+      .map(f => path.join(distDir, f))
+    return Promise.all(removedfiles.map(f => fse.remove(f)))
+  })
 }
 
 exports.copypublic = function () {
@@ -75,7 +84,7 @@ function injectServiceWorker (doc, publicPath) {
     doc.body.appendChild(script)
   }
   let swcode = fse.readFileSync(require.resolve('./src/js/sw.js'), 'utf8')
-  swcode = swcode.replace('CACHE_LIST', JSON.stringify(fse.readdirSync(distDir)))
+  swcode = swcode.replace('CACHE_LIST', JSON.stringify(['/zip-files/?source=pwa', ...fse.readdirSync(distDir)]))
     .replace('APP_VERSION', JSON.stringify(pkg.version))
   fse.outputFileSync(path.join(distDir, swfilename), swcode)
 }
@@ -154,7 +163,10 @@ exports.prerender = function (done) {
 }
 
 exports.default = series(
-  exports.copypublic,
+  parallel(
+    exports.cleanuselessassets,
+    exports.copypublic,
+  ),
   exports.posthtml,
   exports.prerender,
 )
