@@ -84,7 +84,17 @@ function injectServiceWorker (doc, publicPath) {
     doc.body.appendChild(script)
   }
   let swcode = fse.readFileSync(require.resolve('./src/js/sw.js'), 'utf8')
-  swcode = swcode.replace('CACHE_LIST', JSON.stringify(['/zip-files/?source=pwa', ...fse.readdirSync(distDir)]))
+  const walkDir = (base, dirs = [], list = []) => {
+    const dirpath = path.join(base, ...dirs)
+    fse.readdirSync(dirpath).forEach(f => {
+      if (f[0] === '.') return
+      let file = path.join(dirpath, f)
+      let isDirectory = fse.statSync(file).isDirectory()
+      isDirectory ? walkDir(base, dirs.concat(f), list) : list.push(path.join(...dirs, f))
+    })
+    return list
+  }
+  swcode = swcode.replace('CACHE_LIST', JSON.stringify(['/zip-files/?source=pwa', ...walkDir(distDir)]))
     .replace('APP_VERSION', JSON.stringify(pkg.version))
   fse.outputFileSync(path.join(distDir, swfilename), swcode)
 }
