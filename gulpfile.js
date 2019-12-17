@@ -76,7 +76,7 @@ function injectServiceWorker (doc, publicPath) {
     script.innerHTML = `
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./${swfilename}?_t=' + Date.now(), { scope: '${publicPath || ''}' });
+        navigator.serviceWorker.register('./${swfilename}', { scope: '${publicPath || ''}' });
       });
     }
     `.replace(/\s{2,}/mg, ' ')
