@@ -5,7 +5,7 @@ const fs = require('fs')
 exports.clean = function (done) {
   fs.readdirSync(__dirname).forEach(file => {
     if (file === 'gulpfile.js') return
-    if (/\.(css|js|png|jpg|svg|ico)$/.test(file)) {
+    if (/\S+?\.[0-9a-z]{8}\.\S+$/.test(file)) {
       fs.unlinkSync(path.join(__dirname, file))
     }
   })
