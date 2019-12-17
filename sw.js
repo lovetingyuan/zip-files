@@ -24,8 +24,8 @@ self.addEventListener('fetch', event => {
         if (response) {
           console.log('Found ', event.request.url, ' in cache')
           const requestpath = event.request.url.split('?')[0]
-          if (!isHashedFile(requestpath)) {
-            // if file is not long-term cached, we update it everytime.
+          if (!isHashedFile(requestpath) && navigator.onLine) {
+            // if file is not long-term cached, we update it everytime(online).
             console.log('Update request ' + event.request.url + ' in cache')
             fetch(event.request).then(response => {
               return caches.open(staticCacheName).then(cache => {
@@ -36,7 +36,7 @@ self.addEventListener('fetch', event => {
           }
           return response
         }
-        console.log('Network request for ', event.request.url)
+        console.log('Network request for ', event.request.url, self, typeof navigator && navigator)
         return fetch(event.request).then(response => {
         // TODO 5 - Respond with custom 404 page
           return caches.open(staticCacheName).then(cache => {
