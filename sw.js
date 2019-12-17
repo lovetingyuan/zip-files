@@ -40,6 +40,7 @@ self.addEventListener('fetch', event => {
         return fetch(event.request).then(response => {
         // TODO 5 - Respond with custom 404 page
           return caches.open(staticCacheName).then(cache => {
+            console.log('response ', response)
             if (response.status === 200 && response.type !== 'opaque') { // only cache 200 response
               cache.put(event.request, response.clone())
             }
