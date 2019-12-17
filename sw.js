@@ -1,8 +1,8 @@
 /* eslint-disable */
 
-const filesToCache = ["/zip-files/?source=pwa","404.html","LICENSE.txt","favicon.84292e5e.ico","favicon.ico","humans.txt","icon.585561b6.png","icons","index.html","main.7db3ea6c.js","main.7de733e5.css","robots.txt","site.webmanifest","vendor.36cb5d1f.css","vendor.cebd775b.js"]
+const filesToCache = ["/zip-files/?source=pwa","404.html","LICENSE.txt","favicon.84292e5e.ico","favicon.ico","humans.txt","icon.585561b6.png","icons/icon-128x128.png","icons/icon-144x144.png","icons/icon-152x152.png","icons/icon-192x192.png","icons/icon-384x384.png","icons/icon-512x512.png","icons/icon-72x72.png","icons/icon-96x96.png","icons/icon.png","index.html","main.7db3ea6c.js","main.7de733e5.css","robots.txt","site.webmanifest","vendor.36cb5d1f.css","vendor.cebd775b.js"]
 
-const staticCacheName = 'zip-files_' + "1.0.3"
+const staticCacheName = 'zip-files_' + "1.0.4"
 
 self.addEventListener('install', event => {
   console.log('Attempting to install service worker and cache static assets')
