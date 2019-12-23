@@ -1,12 +1,7 @@
 import 'normalize.css/normalize.css'
 import 'main.css/dist/main.css'
-import { set, remove } from 'mobx'
 
 import '../../public/parcel-plugins/runtime'
-
-window.mobx = {
-  set, remove
-}
 
 ;(function () {
   var method

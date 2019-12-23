@@ -1,5 +1,5 @@
 
-    <h1>zip files <span style="font-size: 12px;">这一切都仅仅发生在本机，您的文件始终安全😊。</span></h1>
+<h1>zip files <span style="font-size: 12px;">这一切都仅仅发生在本机，您的文件始终安全😊。</span></h1>
   <main>
   
     <div>
@@ -28,8 +28,7 @@
     </div>
     <p data-else>请选择要压缩打包的文件。</p>
   </main>
-  
- 
+
   <script>
   import zipFiles from './zipfile'
   export default {
@@ -37,10 +36,12 @@
       files: {},
       defaultFilename: 'download.zip',
       renameFile: '',
-      doing: false,
+      doing: false
+    },
+    actions: {
       get fileList () {
-        return Object.keys(this.files).map(name => {
-          return this.files[name]
+        return Object.keys(_.files).map(name => {
+          return _.files[name]
         }).sort((f1, f2) => {
           return f1.index - f2.index
         })
@@ -48,18 +49,20 @@
       onSelectFile (evt) {
         Object.keys(evt.target.files).forEach((index) => {
           const file = evt.target.files[index]
-          if (this.files[file.name]) {
+          if (_.files[file.name]) {
             if (!window.confirm(`文件 ${file.name} 已经存在，要替换吗？`)) return
           }
-          window.mobx.set(this.files, file.name, {
-            name: file.name,
-            file,
-            index: this.fileList.length
+          $(state => {
+            state.files[file.name] = {
+              name: file.name,
+              file,
+              index: __.fileList.length
+            }
           })
         })
       },
       start (evt) {
-        if (this.doing) {
+        if (_.doing) {
           return
         }
         let distName = evt.target.parentElement.querySelector('.dist-input').value
@@ -70,57 +73,74 @@
         if (!distName.endsWith('.zip')) {
           distName = distName + '.zip'
         }
-        this.doing = true
-        zipFiles(this.files, distName).then(() => {
-          this.doing = false
+        $(state => {
+          state.doing = true
+        })
+        zipFiles(_.files, distName).then(() => {
+          $(state => {
+            state.doing = false
+          })
         }).catch(err => {
-          this.doing = false
+          $(state => {
+            state.doing = false
+          })
           window.alert(`抱歉，打包失败了，可能文件太大或文件名太奇怪。${err.message}`)
         })
       },
       onRemove (evt) {
         const filename = evt.target.parentNode.dataset.fileName
-        if (filename === this.renameFile) {
-          this.renameFile = ''
+        if (filename === _.renameFile) {
+          $(state => {
+            state.renameFile = ''
+          })
           return
         }
         if (window.confirm(`不打包 ${filename} ?`)) {
-          window.mobx.remove(this.files, filename)
+          $(state => {
+            delete state.files[filename]
+          })
         }
       },
       clearAll () {
         if (window.confirm('重新来？')) {
-          this.files = {}
+          $(state => {
+            state.files = {}
+          })
         }
       },
       onfocus (evt) {
-        if (evt.target.value === this.defaultFilename) {
+        if (evt.target.value === _.defaultFilename) {
           evt.target.value = ''
         }
       },
       onblur (evt) {
         if (!evt.target.value) {
-          evt.target.value = this.defaultFilename
+          evt.target.value = _.defaultFilename
         }
       },
       onEdit (evt) {
         const filename = evt.target.parentNode.dataset.fileName
-        if (this.renameFile === filename) { // editing
+        if (_.renameFile === filename) { // editing
           const input = evt.target.parentElement.querySelector('.file-name-input')
           const newName = input.value.trim()
           if (newName && newName !== filename) {
-            if (this.files[newName]) {
+            if (_.files[newName]) {
               window.alert(`文件 ${newName} 已经存在，请换个名字。`)
               return
             }
-            const file = this.files[filename]
-            file.name = newName
-            window.mobx.set(this.files, newName, file)
-            window.mobx.remove(this.files, filename)
+            $(state => {
+              const file = state.files[filename]
+              state.files[file.name = newName] = file
+              delete state.files[filename]
+            })
           }
-          this.renameFile = ''
+          $(state => {
+            state.renameFile = ''
+          })
         } else {
-          this.renameFile = filename
+          $(state => {
+            state.renameFile = filename
+          })
         }
       }
     }

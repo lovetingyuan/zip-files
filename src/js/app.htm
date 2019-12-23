@@ -5,7 +5,7 @@
   <sha-tfs></sha-tfs>
 </main>
 <footer> tingyuan © {new Date().getFullYear()} ❤️xue. Thanks
-  <a data-for={$.libs,lib} href={lib.link} target="_blank" rel="noopener noreferrer">{lib.name}</a>.
+  <a data-for={libs,lib} href={lib.link} target="_blank" rel="noopener noreferrer">{lib.name}</a>.
 </footer>
 
 <script>
@@ -14,7 +14,7 @@ export default {
     zipFile: './views/zip-file',
     shaTfs: './views/sha256'
   },
-  data: {
+  state: {
     libs: [{
       link: 'https://github.com/eligrey/FileSaver.js/', name: 'FileSaver.js'
     }, {

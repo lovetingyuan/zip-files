@@ -4,7 +4,7 @@
 <p>结果：</p>
 <textarea name="result" novalidate class="result" readonly spellcheck=false>{result}</textarea>
 <div class="btns">
-  <button data-for={$.btns,len} data-clipboard-text={result.substr(0,len)} disabled={!readycopy||!result}>
+  <button data-for={btns,len} data-clipboard-text={result.substr(0,len)} disabled={!readycopy||!result}>
     { len !== 64 ? '复制前 ' + len + ' 位' : '复 制 结 果' }
   </button>
 </div>
@@ -14,26 +14,32 @@
   const copyurl = 'https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js'
 
   export default {
-    data: {
-      btns: [8, 16, 20, 32, 64]
-    },
     state: {
       result: '',
-      readycopy: false,
+      btns: [8, 16, 20, 32, 64],
+      readycopy: false
+    },
+    actions: {
       sha256 (evt) {
         const value = evt.target.value
         if (!window.ClipboardJS) {
           window.loadScript(copyurl).then(() => {
             new window.ClipboardJS('[data-clipboard-text]') // eslint-disable-line
-            this.readycopy = true
+            $(state => {
+              state.readycopy = true
+            })
           })
         }
         if (value) {
           Promise.resolve(window.sha256 || window.loadScript(shaurl)).then(() => {
-            this.result = window.sha256(value)
+            $(state => {
+              state.result = window.sha256(value)
+            })
           })
         } else {
-          this.result = ''
+          $(state => {
+            state.result = ''
+          })
         }
       }
     }

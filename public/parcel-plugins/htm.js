@@ -13,8 +13,6 @@ const t = babel.types
 const mustache = require('mustache')
 mustache.tags = ['{', '}']
 
-const DATAID = 'data-id'
-
 const requireAttrs = {
   img: ['src'],
   video: ['src', 'poster'],
@@ -23,6 +21,7 @@ const requireAttrs = {
 }
 
 const isBinding = val => val[0] === '{' && val[val.length - 1] === '}'
+const isDirective = val => /^data-(if|else|for|html)$/.test(val)
 
 const globalVars = {
   props: true,
@@ -124,10 +123,9 @@ module.exports = class HtmAsset extends Asset {
     return `
 /* hot reload */
 if (module.hot) {
-  module.hot.accept()
-  if (module.hot.data) {
-    window.dispatchEvent(new CustomEvent('__ssss_hmr__',{detail:{cid:'${this.htm.componentId}'}}))
-  }
+  module.hot.accept(() => {
+    window.dispatchEvent(new CustomEvent('__ssb_hmr__',{detail:{cid:'${this.htm.componentId}'}}))
+  })
   ${this.htm.styles.length ? `
   const reloadCSS = require('_css_loader')
   module.hot.dispose(reloadCSS)
@@ -135,8 +133,8 @@ if (module.hot) {
 }`
   }
 
-  _transformTagTemplate (template, needAddCtx) {
-    if (!needAddCtx) {
+  _transformTagTemplate (template, hasState, actions, components) {
+    if (!hasState && !Object.keys(actions).length) {
       return t.taggedTemplateExpression(
         t.memberExpression(t.identifier('this'), t.identifier('h')),
         t.templateLiteral([
@@ -144,19 +142,26 @@ if (module.hot) {
         ], [])
       )
     }
-    const components = this.htm.components
-    let globals = null
+    let scopeGlobals = null
+    let ignoreVars = null
     const visitor = {
       Program (path) {
         const runtimeGlobals = path.scope.constructor.globals.reduce((a, b) => {
           a[b] = true
           return a
         }, {})
-        globals = Object.assign({}, path.scope.globals, runtimeGlobals, components, globalVars)
+        ignoreVars = {
+          ...components, ...runtimeGlobals, ...globalVars,
+        }
+        scopeGlobals = path.scope.globals
       },
       Identifier (path) {
-        if (typeof globals[path.node.name] !== 'object') return
-        if (path.scope.hasBinding(path.node.name)) return
+        const name = path.node.name
+        if (
+          (name in ignoreVars) ||
+          !(name in scopeGlobals) ||
+          path.scope.hasBinding(name)
+        ) return
         if (t.isVariableDeclarator(path.parent)) {
           if (path.key !== 'init') return
         }
@@ -166,7 +171,7 @@ if (module.hot) {
         if (t.isObjectProperty(path.parent)) {
           if (path.key === 'key' && !path.parent.computed) return
         }
-        path.replaceWith(t.memberExpression(t.identifier('_'), path.node))
+        path.replaceWith(t.memberExpression(t.identifier(name in actions ? '__' : '_'), path.node))
       }
     }
     const result = babel.transformSync('this.h`' + template + '`', {
@@ -180,102 +185,131 @@ if (module.hot) {
     return result.ast.program.body[0].expression
   }
 
-  _transformDefaultExport (template, cid, path) {
+  _transformExportDefault (path, template, cid) {
     const dec = path.node.declaration
     if (!t.isObjectExpression(dec)) {
       throw new Error('Component must export plain object as default.')
     }
-    const findProp = key => {
-      return dec.properties.findIndex(prop => {
-        if (t.isIdentifier(prop.key)) {
-          return prop.key.name === key
-        } else if (t.isStringLiteral(prop.key)) {
-          return prop.key.value === key
+    let stateNode
+    let actionsNode
+    let loadNode
+    const componentsMap = {}
+    const actionsMap = {}
+    dec.properties.forEach(prop => {
+      if (!t.isObjectMethod(prop) && !t.isObjectProperty(prop)) return
+      const key = prop.key.name || prop.key.value
+      const val = t.isObjectMethod(prop) ? [prop.params, prop.body] : prop.value
+      if (!val || !key) return
+      if (key === 'components') {
+        if (!t.isObjectExpression(val)) {
+          throw new Error('"components" in default export must be a plain object.')
         }
-      })
-    }
-    const cindex = findProp('components')
-    const components = {}
-    if (cindex >= 0) {
-      const comps = dec.properties[cindex].value
-      if (!t.isObjectExpression(comps)) {
-        throw new Error('"components" in default export must be a plain object.')
-      }
-      comps.properties.forEach(prop => {
-        if (t.isStringLiteral(prop.value)) {
-          let compName
-          if (t.isIdentifier(prop.key)) {
-            compName = prop.key.name
-          } else if (t.isStringLiteral(prop.key)) {
-            const { isValid } = validate(prop.key.value)
-            if (isValid) {
-              compName = prop.key.value.replace(/-./g, (str) => str.slice(1).toUpperCase())
-            }
+        const body = path.parent.body
+        val.properties.forEach(prop => {
+          let compName = prop.key.name || prop.key.value
+          if (!compName) return
+          if (!t.isStringLiteral(prop.value)) {
+            throw new Error(`value of "${compName}" must be component file path.`)
           }
-          if (compName && t.isStringLiteral(prop.value)) {
-            if (compName in components) {
-              throw new Error('Duplicated component name: ' + compName)
-            }
-            components[compName] = prop.value.value.trim()
-            if (!components[compName].endsWith('.htm')) {
-              components[compName] = components[compName] + '.htm'
-            }
+          if (compName.includes('-')) {
+            compName = compName.replace(/-./g, (str) => str.slice(1).toUpperCase())
           }
-        }
-      })
-      dec.properties.splice(cindex, 1)
-    }
-    Object.keys(components).forEach(key => {
-      const body = path.parent.body
-      body.push(
-        t.importDeclaration(
-          [
-            t.importDefaultSpecifier(t.identifier(key))
-          ],
-          t.stringLiteral(components[key])
-        )
-      )
-    })
-    const stateindex = findProp('state')
-    if (stateindex >= 0) {
-      const stateProp = dec.properties[stateindex]
-      if (t.isObjectExpression(stateProp.value)) {
-        dec.properties[stateindex] = t.objectMethod(
-          'method', t.identifier('state'), [],
-          t.blockStatement([
-            t.returnStatement(stateProp.value)
-          ])
-        )
-      }
-    }
-
-    dec.properties.push(t.objectMethod(
-      'method',
-      t.identifier('view'),
-      [
-        t.identifier('props'),
-        t.identifier('_'),
-        t.identifier('$')
-      ],
-      t.blockStatement(
-        [
-          t.returnStatement(
-            this._transformTagTemplate(template, stateindex >= 0)
+          if (compName in componentsMap) {
+            throw new Error('Duplicated component name: ' + compName)
+          }
+          componentsMap[compName] = true
+          const filepath = prop.value.value.trim()
+          body.push(
+            t.importDeclaration(
+              [
+                t.importDefaultSpecifier(t.identifier(compName))
+              ],
+              t.stringLiteral(filepath.endsWith('.htm') ? filepath : filepath + '.htm')
+            )
           )
-        ]
-      )
-    ))
+        })
+      } else if (key === 'state') {
+        if (t.isObjectExpression(val)) {
+          stateNode = val
+        }
+      } else if (key === 'actions') {
+        if (!t.isObjectExpression(val)) {
+          throw new Error('actions must be plain object.')
+        }
+        actionsNode = val
+        actionsNode.properties.forEach(prop => {
+          if (t.isIdentifier(prop.key)) {
+            actionsMap[prop.key.name] = '__'
+          }
+        })
+      } else if (key === 'load') {
+        loadNode = val
+      }
+    })
+
     path.node.declaration = t.callExpression(
       t.identifier('component'),
       [
         t.stringLiteral(cid),
-        dec
+        t.functionExpression(
+          null,
+          [t.identifier('props'), !stateNode && t.identifier('_')].filter(Boolean),
+          t.blockStatement(
+            [
+              stateNode && t.variableDeclaration(
+                'const',
+                [
+                  t.variableDeclarator(
+                    t.arrayPattern(
+                      [
+                        t.identifier('_'),
+                        t.identifier('$')
+                      ]
+                    ),
+                    t.callExpression(
+                      t.memberExpression(t.thisExpression(), t.identifier('im')),
+                      [stateNode, t.identifier('arguments')]
+                    )
+                  )
+                ]
+              ),
+              loadNode && t.expressionStatement(t.callExpression(
+                t.memberExpression(t.thisExpression(), t.identifier('ef')),
+                [Array.isArray(loadNode) ? t.functionExpression(null, loadNode[0], loadNode[1]) : loadNode]
+              )),
+              actionsNode && t.variableDeclaration(
+                'const',
+                [
+                  t.variableDeclarator(t.identifier('__'), actionsNode)
+                ]
+              ),
+              t.returnStatement(
+                this._transformTagTemplate(template, !!stateNode, actionsMap, componentsMap)
+              )
+            ].filter(Boolean)
+          )
+        )
       ]
     )
   }
 
   _transformScript (code, template, cid) {
-    const transformDefault = this._transformDefaultExport.bind(this, template, cid)
+    const self = this
+    const visitor = {
+      ExportDefaultDeclaration (path) {
+        return self._transformExportDefault(path, template, cid)
+      },
+      // AssignmentExpression (path) {
+      //   if (
+      //     t.isIdentifier(path.node.left) && path.node.left.name === '$' &&
+      //     (t.isFunctionExpression(path.node.right) || t.isArrowFunctionExpression(path.node.right))
+      //   ) {
+      //     path.replaceWith(
+      //       t.callExpression(path.node.left, [path.node.right])
+      //     )
+      //   }
+      // }
+    }
     return babel.transformAsync(code, {
       sourceMaps: this.options.sourceMaps,
       sourceFileName: this.relativeName, // cry...
@@ -283,7 +317,7 @@ if (module.hot) {
       babelrc: false,
       plugins: [({ assertVersion }) => { /* babel, pluginOptions, baseDir */
         assertVersion(7)
-        return { visitor: { ExportDefaultDeclaration: transformDefault } }
+        return { visitor }
       }]
     })
   }
@@ -303,7 +337,7 @@ if (module.hot) {
       const attrsList = []
       attrs.forEach(attr => {
         const value = attr.value.trim()
-        if (attr.name === 'data-if' || attr.name === 'data-for' || attr.name === 'data-html') {
+        if (isDirective(attr.name)) {
           if (!isBinding(value)) {
             throw new Error(`"${attr.name}" attribute value "${value}" should be binding value, ` + node.outerHTML)
           }
@@ -379,20 +413,22 @@ if (module.hot) {
         node.insertAdjacentText('afterend', '`}, this)}')
       }
       if (isComponent) {
-        const location = this.htm.dom.nodeLocation(node)
-        const id = hash(this.name + node.tagName + JSON.stringify(location))
+        // const location = this.htm.dom.nodeLocation(node)
+        // const id = hash(this.name + node.tagName + JSON.stringify(location))
         const compName = node.tagName.toLowerCase()
         const localCompName = compName.replace(/-./g, (str) => str.slice(1).toUpperCase())
-        this.htm.components[localCompName] = true
-        node.textContent = `\${this.c({${attrsList}},typeof ${localCompName}==='object'?${localCompName}.id:'${compName}')}`
-        node.setAttribute(DATAID, `\${this.i('${id}',arguments[1])}`)
+        node.textContent = `\${this.c(typeof ${localCompName}==='function'?${localCompName}.id:null)}`
+        node.setAttribute('props', `\${this.p={${attrsList}}}`)
+        if (this.options.hmr) {
+          node.setAttribute('data-comp-id', `\${typeof ${localCompName}==='function'?${localCompName}.id:''}`)
+        }
       } else {
         // note that nodeList is dynamic
         ;[...node.childNodes].forEach(child => this._transformTemplate(child, scoped))
       }
     } else if (node.nodeType === 3) {
       if (node.parentElement && node.parentElement.hasAttribute('data-html')) {
-        node.textContent = `\${this.ih(${node.textContent})}`
+        node.textContent = `\${{html:${node.textContent}}}`
         node.parentElement.removeAttribute('data-html')
       } else {
         const production = process.env.NODE_ENV === 'production'
