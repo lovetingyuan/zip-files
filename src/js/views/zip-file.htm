@@ -1,159 +1,144 @@
-
 <h1>zip files <span style="font-size: 12px;">这一切都仅仅发生在本机，您的文件始终安全😊。</span></h1>
-  <main>
-  
-    <div>
-      <input type="file" data-text="选 择 文 件 📁" multiple="multiple" onchange={onSelectFile}>
-      <a href="javascript:0" onclick={clearAll} data-if="{fileList.length > 1}" class="clear-all-btn">清除全部</a>
-    </div>
-    <ol class="file-list">
-      <li data-for={fileList,file} class="file-item" data-file-name={file.name}>
-        <span data-if={file.name!==renameFile}>{file.name}</span>
-        <input type="text" autofocus data-else value={file.name} class="file-name-input" placeholder="文件名">
-        <span class="action-btn" title="删除" onclick={onRemove}>❌</span>
-        <span class="action-btn" title="命名" onclick={onEdit}>
-          { file.name === renameFile ? '✔️' : '✍️' }
-        </span>
-      </li>
-    </ol>
-    <div data-if={fileList.length}>
-      <div>
-        <label>保存为：</label>
-        <input type="text" value="{defaultFilename}" onblur="{onblur}" onfocus="{onfocus}" class="dist-input" placeholder="保存的文件名">
-      </div>
-      <br>
-      <a href="javascript:null" tabindex="-1" onclick={start} class="download-btn">
-        { doing ? '请稍候⌛...' : '📦 压缩并保存这'+fileList.length+'个文件 📥' }
-      </a>
-    </div>
-    <p data-else>请选择要压缩打包的文件。</p>
-  </main>
+<main>
 
-  <script>
+  <div>
+    <input type="file" data-text="选 择 文 件 📁" multiple="multiple" onchange={onSelectFile}>
+    <a href="javascript:0" onclick={clearAll} data-if="{fileList.length > 1}" class="clear-all-btn">清除全部</a>
+  </div>
+  <ol class="file-list">
+    <li data-for={fileList,file} class="file-item" data-file-name={file.name}>
+      <span data-if={file.name!==renameFile}>{file.name}</span>
+      <input type="text" autofocus data-else value={file.name} class="file-name-input" placeholder="文件名">
+      <span class="action-btn" title="删除" onclick={onRemove}>❌</span>
+      <span class="action-btn" title="命名" onclick={onEdit}>
+        { file.name === renameFile ? '✔️' : '✍️' }
+      </span>
+    </li>
+  </ol>
+  <div data-if={fileList.length}>
+    <div>
+      <label>保存为：</label>
+      <input type="text" value="{defaultFilename}" onblur="{onblur}" onfocus="{onfocus}" class="dist-input"
+        placeholder="保存的文件名">
+    </div>
+    <br>
+    <a href="javascript:null" tabindex="-1" onclick={start} class="download-btn">
+      { doing ? '请稍候⌛...' : '📦 压缩并保存这'+fileList.length+'个文件 📥' }
+    </a>
+  </div>
+  <p data-else>请选择要压缩打包的文件。</p>
+</main>
+
+<script>
   import zipFiles from './zipfile'
-  export default {
-    state: {
+  export default function () {
+    state = {
       files: {},
       defaultFilename: 'download.zip',
       renameFile: '',
       doing: false
-    },
-    actions: {
-      get fileList () {
-        return Object.keys(_.files).map(name => {
-          return _.files[name]
-        }).sort((f1, f2) => {
-          return f1.index - f2.index
-        })
-      },
-      onSelectFile (evt) {
-        Object.keys(evt.target.files).forEach((index) => {
-          const file = evt.target.files[index]
-          if (_.files[file.name]) {
-            if (!window.confirm(`文件 ${file.name} 已经存在，要替换吗？`)) return
+    }
+    const fileList = Object.keys(state.files).map(name => {
+      return state.files[name]
+    }).sort((f1, f2) => {
+      return f1.index - f2.index
+    })
+    const onSelectFile = (evt) => {
+      Object.keys(evt.target.files).forEach((index) => {
+        const file = evt.target.files[index]
+        if (state.files[file.name]) {
+          if (!window.confirm(`文件 ${file.name} 已经存在，要替换吗？`)) return
+        }
+        $: {
+          state.files[file.name] = {
+            name: file.name,
+            file,
+            index: fileList.length
           }
-          $(state => {
-            state.files[file.name] = {
-              name: file.name,
-              file,
-              index: __.fileList.length
-            }
-          })
-        })
-      },
-      start (evt) {
-        if (_.doing) {
-          return
         }
-        let distName = evt.target.parentElement.querySelector('.dist-input').value
-        while (distName === '') {
-          distName = window.prompt('保存的文件名称:')
-        }
-        if (!distName) return // cancel
-        if (!distName.endsWith('.zip')) {
-          distName = distName + '.zip'
-        }
-        $(state => {
-          state.doing = true
-        })
-        zipFiles(_.files, distName).then(() => {
-          $(state => {
-            state.doing = false
-          })
-        }).catch(err => {
-          $(state => {
-            state.doing = false
-          })
-          window.alert(`抱歉，打包失败了，可能文件太大或文件名太奇怪。${err.message}`)
-        })
-      },
-      onRemove (evt) {
-        const filename = evt.target.parentNode.dataset.fileName
-        if (filename === _.renameFile) {
-          $(state => {
-            state.renameFile = ''
-          })
-          return
-        }
-        if (window.confirm(`不打包 ${filename} ?`)) {
-          $(state => {
-            delete state.files[filename]
-          })
-        }
-      },
-      clearAll () {
-        if (window.confirm('重新来？')) {
-          $(state => {
-            state.files = {}
-          })
-        }
-      },
-      onfocus (evt) {
-        if (evt.target.value === _.defaultFilename) {
-          evt.target.value = ''
-        }
-      },
-      onblur (evt) {
-        if (!evt.target.value) {
-          evt.target.value = _.defaultFilename
-        }
-      },
-      onEdit (evt) {
-        const filename = evt.target.parentNode.dataset.fileName
-        if (_.renameFile === filename) { // editing
-          const input = evt.target.parentElement.querySelector('.file-name-input')
-          const newName = input.value.trim()
-          if (newName && newName !== filename) {
-            if (_.files[newName]) {
-              window.alert(`文件 ${newName} 已经存在，请换个名字。`)
-              return
-            }
-            $(state => {
-              const file = state.files[filename]
-              state.files[file.name = newName] = file
-              delete state.files[filename]
-            })
-          }
-          $(state => {
-            state.renameFile = ''
-          })
-        } else {
-          $(state => {
-            state.renameFile = filename
-          })
+      })
+    }
+    const start = (evt) => {
+      if (state.doing) {
+        return
+      }
+      let distName = evt.target.parentElement.querySelector('.dist-input').value
+      while (distName === '') {
+        distName = window.prompt('保存的文件名称:')
+      }
+      if (!distName) return // cancel
+      if (!distName.endsWith('.zip')) {
+        distName = distName + '.zip'
+      }
+      $: state.doing = true
+      zipFiles(state.files, distName).then(() => {
+        $: state.doing = false
+      }).catch(err => {
+        $: state.doing = false
+        window.alert(`抱歉，打包失败了，可能文件太大或文件名太奇怪。${err.message}`)
+      })
+    }
+    const onRemove = (evt) => {
+      const filename = evt.target.parentNode.dataset.fileName
+      if (filename === state.renameFile) {
+        $: state.renameFile = ''
+        return
+      }
+      if (window.confirm(`不打包 ${filename} ?`)) {
+        $: {
+          delete state.files[filename]
         }
       }
     }
-  }
-  </script>
-  
-  <style>
-    h1 {
-      text-transform: capitalize;
-      margin-top: 30px;
-      text-shadow: 4px 3px 0 #e4e4e4;
+    const clearAll = (evt) => {
+      if (window.confirm('重新来？')) {
+        const fileinput = evt.target.previousElementSibling
+        $: state.files = {}
+        fileinput.value = null
+      }
     }
- 
+    const onfocus = (evt) => {
+      if (evt.target.value === state.defaultFilename) {
+        evt.target.value = ''
+      }
+    }
+    const onblur = (evt) => {
+      if (!evt.target.value) {
+        evt.target.value = state.defaultFilename
+      }
+    }
+    const onEdit = (evt) => {
+      const filename = evt.target.parentNode.dataset.fileName
+      if (state.renameFile === filename) { // editing
+        const input = evt.target.parentElement.querySelector('.file-name-input')
+        const newName = input.value.trim()
+        if (newName && newName !== filename) {
+          if (state.files[newName]) {
+            window.alert(`文件 ${newName} 已经存在，请换个名字。`)
+            return
+          }
+          $: {
+            const file = state.files[filename]
+            state.files[file.name = newName] = file
+            delete state.files[filename]
+          }
+        }
+        $: state.renameFile = ''
+      } else {
+        $: state.renameFile = filename
+      }
+    }
+    return { onSelectFile, onblur, onfocus, onEdit, clearAll, start, fileList, onRemove }
+  }
+</script>
+
+<style>
+  h1 {
+    text-transform: capitalize;
+    margin-top: 30px;
+    text-shadow: 4px 3px 0 #e4e4e4;
+  }
+
   input[type=file] {
     font-size: 0;
     display: inline-block;
@@ -163,6 +148,7 @@
     overflow: hidden;
     position: relative;
   }
+
   input[type=file]:before {
     content: attr(data-text);
     display: inline-block;
@@ -177,6 +163,7 @@
     border-radius: 4px;
     position: absolute;
   }
+
   .clear-all-btn {
     text-decoration: none;
     position: relative;
@@ -188,18 +175,23 @@
   .file-list {
     margin: 40px 0;
   }
+
   .file-item {
     margin: 10px 0;
   }
+
   .action-btn {
     cursor: pointer;
     margin-left: 10px;
     vertical-align: middle;
   }
-  .file-name-input, .dist-input {
+
+  .file-name-input,
+  .dist-input {
     padding: 4px 8px;
     width: 200px;
   }
+
   .download-btn {
     display: inline-block;
     background-color: deepskyblue;
@@ -208,5 +200,4 @@
     border-radius: 5px;
     text-decoration: none;
   }
-  </style>
-  
+</style>

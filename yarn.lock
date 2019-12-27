@@ -2711,7 +2711,7 @@ eslint-config-standard-jsx@8.1.0:
   resolved "https://registry.yarnpkg.com/eslint-config-standard-jsx/-/eslint-config-standard-jsx-8.1.0.tgz#314c62a0e6f51f75547f89aade059bec140edfc7"
   integrity sha512-ULVC8qH8qCqbU792ZOO6DaiaZyHNS/5CZt3hKqHkEhVlhPEPN3nfBqqxJCyp59XrjIBZPu1chMYe9T2DXZ7TMw==
 
-eslint-config-standard@14.1.0:
+eslint-config-standard@14.1.0, eslint-config-standard@^14.1.0:
   version "14.1.0"
   resolved "https://registry.yarnpkg.com/eslint-config-standard/-/eslint-config-standard-14.1.0.tgz#b23da2b76fe5a2eba668374f246454e7058f15d4"
   integrity sha512-EF6XkrrGVbvv8hL/kYa/m6vnvmUT+K82pJJc4JJVMM6+Qgqh0pnwprSxdduDLB9p/7bIxD+YV5O0wfb8lmcPbA==
@@ -3479,10 +3479,10 @@ glogg@^1.0.0:
   dependencies:
     sparkles "^1.0.0"
 
-got@^10.1.0:
-  version "10.1.0"
-  resolved "https://registry.yarnpkg.com/got/-/got-10.1.0.tgz#f8437664bdc95a80638db9e101fa81d6e730b67a"
-  integrity sha512-7tFtiOkTc47O9PyQ8or0urxjs8XF+4K7CfZMRM9RiZAm4kbllG3D8tGlA04PloiFDA2e178mS8yiLSZut1C6Zw==
+got@^10.2.0:
+  version "10.2.0"
+  resolved "https://registry.yarnpkg.com/got/-/got-10.2.0.tgz#c7d54e5b41881e5c64952a4013986af12dbab47f"
+  integrity sha512-X14b2uo+20s+HrJz9qyUmGNdIyYbRUZNE05fUz0aS4eXp1l82oUvsvFcMjwY3D25zgWwittqEQWEia0XqSlzzw==
   dependencies:
     "@sindresorhus/is" "^1.0.0"
     "@szmarczak/http-timer" "^3.1.1"
@@ -4304,7 +4304,7 @@ jsdom@^14.1.0:
     ws "^6.1.2"
     xml-name-validator "^3.0.0"
 
-jsdom@^15.2.0:
+jsdom@^15.2.0, jsdom@^15.2.1:
   version "15.2.1"
   resolved "https://registry.yarnpkg.com/jsdom/-/jsdom-15.2.1.tgz#d2feb1aef7183f86be521b8c6833ff5296d07ec5"
   integrity sha512-fAl1W0/7T2G5vURSyxBzrJ1LSdQn6Tr5UX/xD4PXDx/PDgwygedfW6El/KIj3xJ7FU61TTYnc/l/B7P49Eqt6g==
@@ -6932,7 +6932,7 @@ standard-engine@^12.0.0:
     minimist "^1.1.0"
     pkg-conf "^3.1.0"
 
-standard@^14.3.1:
+standard@^14.0.0:
   version "14.3.1"
   resolved "https://registry.yarnpkg.com/standard/-/standard-14.3.1.tgz#f6a5d9244fbb6b76d0c2dbcc1048a03c863038b6"
   integrity sha512-TUQwU7znlZLfgKH1Zwn/D84FitWZkUTfbxSiz/vFx+4c9GV+clSfG/qLiLZOlcdyzhw3oF5/pZydNjbNDfHPEw==
@@ -6945,6 +6945,14 @@ standard@^14.3.1:
     eslint-plugin-promise "~4.2.1"
     eslint-plugin-react "~7.14.2"
     eslint-plugin-standard "~4.0.0"
+    standard-engine "^12.0.0"
+
+standardx@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/standardx/-/standardx-5.0.0.tgz#e69864a669e655519d3cf48e9761465ff363f55d"
+  integrity sha512-dWbhU91EqwwWTED224B4X0h1q01Tv2wIv30mFz4NOQ+JMEJKtCrBOUEgMpBIynSFm6MDJYr+H7xUPVMYjGd8HA==
+  dependencies:
+    standard "^14.0.0"
     standard-engine "^12.0.0"
 
 static-eval@^2.0.0:

@@ -9,22 +9,20 @@
 </footer>
 
 <script>
-export default {
-  components: {
-    zipFile: './views/zip-file',
-    shaTfs: './views/sha256'
-  },
-  state: {
-    libs: [{
-      link: 'https://github.com/eligrey/FileSaver.js/', name: 'FileSaver.js'
-    }, {
-      link: 'https://github.com/Stuk/jszip', name: 'jszip'
-    }, {
-      link: 'https://github.com/emn178/js-sha256', name: 'js-sha256'
-    }, {
-      link: 'https://github.com/zenorocha/clipboard.js/', name: 'clipboard.js'
-    }]
-  }
+import zipFile from './views/zip-file.htm'
+import shaTfs from './views/sha256.htm'
+
+export default function () {
+  const libs = [{
+    link: 'https://github.com/eligrey/FileSaver.js/', name: 'FileSaver.js'
+  }, {
+    link: 'https://github.com/Stuk/jszip', name: 'jszip'
+  }, {
+    link: 'https://github.com/emn178/js-sha256', name: 'js-sha256'
+  }, {
+    link: 'https://github.com/zenorocha/clipboard.js/', name: 'clipboard.js'
+  }]
+  return { zipFile, shaTfs, libs }
 }
 </script>
 

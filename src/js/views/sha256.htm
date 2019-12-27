@@ -12,71 +12,70 @@
 <script>
   const shaurl = 'https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js'
   const copyurl = 'https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js'
-
-  export default {
-    state: {
+  export default function () {
+    state = {
       result: '',
-      btns: [8, 16, 20, 32, 64],
       readycopy: false
-    },
-    actions: {
-      sha256 (evt) {
-        const value = evt.target.value
-        if (!window.ClipboardJS) {
-          window.loadScript(copyurl).then(() => {
-            new window.ClipboardJS('[data-clipboard-text]') // eslint-disable-line
-            $(state => {
-              state.readycopy = true
-            })
-          })
-        }
-        if (value) {
-          Promise.resolve(window.sha256 || window.loadScript(shaurl)).then(() => {
-            $(state => {
-              state.result = window.sha256(value)
-            })
-          })
-        } else {
-          $(state => {
-            state.result = ''
-          })
-        }
+    }
+    const btns = [8, 16, 20, 32, 64]
+    $(() => {
+      if (!window.ClipboardJS) {
+        window.loadScript(copyurl).then(() => {
+          new window.ClipboardJS('[data-clipboard-text]') // eslint-disable-line
+          $: state.readycopy = true
+        })
+      }
+    })
+    const sha256 = evt => {
+      const value = evt.target.value
+      if (value) {
+        Promise.resolve(window.sha256 || window.loadScript(shaurl)).then(() => {
+          $: state.result = window.sha256(value)
+        })
+      } else {
+        $: state.result = ''
       }
     }
+    return { btns, sha256 }
   }
 </script>
 
 <style scoped>
-textarea {
-  width: 96%;
-  display: block;
-  margin: 20px auto;
-  padding: 15px 20px;
-  box-sizing: border-box;
-}
-.result {
-  height: 4em;
-  padding: 6px 10px;
-  width: 96%;
-}
-button {
-  padding: 5px 15px;
-  background-color: rgb(172, 107, 233);
-  color: white;
-  cursor: pointer;
-  border: 0 none;
-  margin: 5px 20px;
-  border-radius: 2px;
-}
-button[disabled] {
-  opacity: .8;
-  cursor: not-allowed;
-}
-p {
-  margin: 0px 0;
-}
-.btns {
-  display: flex;
-  flex-direction: column;
-}
+  textarea {
+    width: 96%;
+    display: block;
+    margin: 20px auto;
+    padding: 15px 20px;
+    box-sizing: border-box;
+  }
+
+  .result {
+    height: 4em;
+    padding: 6px 10px;
+    width: 96%;
+  }
+
+  button {
+    padding: 5px 15px;
+    background-color: rgb(172, 107, 233);
+    color: white;
+    cursor: pointer;
+    border: 0 none;
+    margin: 5px 20px;
+    border-radius: 2px;
+  }
+
+  button[disabled] {
+    opacity: .8;
+    cursor: not-allowed;
+  }
+
+  p {
+    margin: 0px 0;
+  }
+
+  .btns {
+    display: flex;
+    flex-direction: column;
+  }
 </style>

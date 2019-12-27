@@ -14,7 +14,7 @@ window.component = function component (id, comp) {
   const stateless = comp.length > 1
   comp = comp.bind(context)
   comp = stateless ? comp : $(comp)
-  return components[comp.id = id] = comp
+  return components[comp.id = id] = comp // eslint-disable-line
 }
 
 const context = {
@@ -36,7 +36,7 @@ window.startApp = function startApp ({ target, component, i18n }) {
   const container = typeof target === 'string' ? document.querySelector(target) : target
   translation = i18n || {}
   render.call(context, container, component)
-  window.__prerender__ && setTimeout(window.__prerender__.bind(null,container.outerHTML))
+  window.__prerender__ && setTimeout(window.__prerender__.bind(null, container.outerHTML))
   if (module.hot) {
     window.addEventListener('__ssb_hmr__', (evt) => {
       const { cid } = evt.detail

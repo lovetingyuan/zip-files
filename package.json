@@ -1,13 +1,13 @@
 {
   "name": "zip-online",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "description": "zip your files online.",
   "private": true,
   "scripts": {
     "serve": "npx parcel public/index.html --cache-dir node_modules/.cache/parcel",
     "build": "npx parcel build public/index.html --cache-dir node_modules/.cache/parcel --detailed-report --no-source-maps --public-url ./",
     "dev": "npx rimraf node_modules/.cache && npx gulp clean && npm run serve",
-    "lint": "npx standard --plugin html 'src/**/*.{js,htm}' --fix",
+    "lint": "npx standardx --plugin html 'src/**/*.{js,htm}' --fix",
     "prebuild": "npm run lint && npx gulp clean",
     "postbuild": "npx gulp",
     "checkdep": "npx npm-check-updates"
@@ -18,16 +18,17 @@
   "devDependencies": {
     "cssnano": "^4.1.10",
     "eslint-plugin-html": "^6.0.0",
+    "eslint-config-standard": "^14.1.0",
     "express": "^4.17.1",
     "fs-extra": "^8.1.0",
     "git-rev-sync": "^2.0.0",
-    "got": "^10.1.0",
+    "got": "^10.2.0",
     "gulp": "^4.0.2",
     "gulp-cli": "^2.2.0",
-    "jsdom": "^15.2.0",
+    "jsdom": "^15.2.1",
     "parcel-bundler": "^1.12.4",
     "parcel-plugin-lighterhtm": "./public/parcel-plugins",
-    "standard": "^14.3.1"
+    "standardx": "^5.0.0"
   },
   "dependencies": {
     "classnames": "^2.2.6",
@@ -36,10 +37,14 @@
     "neverland": "^3.1.6",
     "normalize.css": "^8.0.1"
   },
-  "standard": {
-    "globals": [
-      "$", "_", "__"
-    ]
+  "eslintConfig": {
+    "extends": "standard",
+    "globals": {
+      "_": true, "state": true, "$": true
+    },
+    "rules": {
+      "no-labels": 0
+    }
   },
   "alias": {
     "img": "./src/img"

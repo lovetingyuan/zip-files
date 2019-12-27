@@ -25,6 +25,7 @@ const isDirective = val => /^data-(if|else|for|html)$/.test(val)
 
 const globalVars = {
   props: true,
+  state: true,
   $: true,
   _: true,
   arguments: true,
@@ -55,6 +56,7 @@ module.exports = class HtmAsset extends Asset {
 
   async parse (code) {
     this.htm.sourceCode = code
+    this.htm.codeOffset = code.slice(0, code.indexOf('<script>')).split(/\r?\n/g).length
     const dom = new JSDOM(code.trim(), {
       includeNodeLocations: true
     })
@@ -133,8 +135,8 @@ if (module.hot) {
 }`
   }
 
-  _transformTagTemplate (template, hasState, actions, components) {
-    if (!hasState && !Object.keys(actions).length) {
+  _transformTagTemplate (template, stateVars, bindings) {
+    if (!Object.keys(stateVars).length) {
       return t.taggedTemplateExpression(
         t.memberExpression(t.identifier('this'), t.identifier('h')),
         t.templateLiteral([
@@ -143,23 +145,25 @@ if (module.hot) {
       )
     }
     let scopeGlobals = null
-    let ignoreVars = null
+    let commonGlobals = null
     const visitor = {
       Program (path) {
         const runtimeGlobals = path.scope.constructor.globals.reduce((a, b) => {
           a[b] = true
           return a
         }, {})
-        ignoreVars = {
-          ...components, ...runtimeGlobals, ...globalVars,
+        commonGlobals = {
+          ...runtimeGlobals, ...globalVars
         }
         scopeGlobals = path.scope.globals
       },
-      Identifier (path) {
+      Identifier (path) { // auto bind state variables in template
         const name = path.node.name
         if (
-          (name in ignoreVars) ||
+          (name in commonGlobals) ||
+          (name in bindings) ||
           !(name in scopeGlobals) ||
+          !(name in stateVars) ||
           path.scope.hasBinding(name)
         ) return
         if (t.isVariableDeclarator(path.parent)) {
@@ -171,7 +175,7 @@ if (module.hot) {
         if (t.isObjectProperty(path.parent)) {
           if (path.key === 'key' && !path.parent.computed) return
         }
-        path.replaceWith(t.memberExpression(t.identifier(name in actions ? '__' : '_'), path.node))
+        path.replaceWith(t.memberExpression(t.identifier('state'), path.node))
       }
     }
     const result = babel.transformSync('this.h`' + template + '`', {
@@ -185,130 +189,105 @@ if (module.hot) {
     return result.ast.program.body[0].expression
   }
 
-  _transformExportDefault (path, template, cid) {
-    const dec = path.node.declaration
-    if (!t.isObjectExpression(dec)) {
-      throw new Error('Component must export plain object as default.')
-    }
-    let stateNode
-    let actionsNode
-    let loadNode
-    const componentsMap = {}
-    const actionsMap = {}
-    dec.properties.forEach(prop => {
-      if (!t.isObjectMethod(prop) && !t.isObjectProperty(prop)) return
-      const key = prop.key.name || prop.key.value
-      const val = t.isObjectMethod(prop) ? [prop.params, prop.body] : prop.value
-      if (!val || !key) return
-      if (key === 'components') {
-        if (!t.isObjectExpression(val)) {
-          throw new Error('"components" in default export must be a plain object.')
-        }
-        const body = path.parent.body
-        val.properties.forEach(prop => {
-          let compName = prop.key.name || prop.key.value
-          if (!compName) return
-          if (!t.isStringLiteral(prop.value)) {
-            throw new Error(`value of "${compName}" must be component file path.`)
-          }
-          if (compName.includes('-')) {
-            compName = compName.replace(/-./g, (str) => str.slice(1).toUpperCase())
-          }
-          if (compName in componentsMap) {
-            throw new Error('Duplicated component name: ' + compName)
-          }
-          componentsMap[compName] = true
-          const filepath = prop.value.value.trim()
-          body.push(
-            t.importDeclaration(
-              [
-                t.importDefaultSpecifier(t.identifier(compName))
-              ],
-              t.stringLiteral(filepath.endsWith('.htm') ? filepath : filepath + '.htm')
-            )
-          )
-        })
-      } else if (key === 'state') {
-        if (t.isObjectExpression(val)) {
-          stateNode = val
-        }
-      } else if (key === 'actions') {
-        if (!t.isObjectExpression(val)) {
-          throw new Error('actions must be plain object.')
-        }
-        actionsNode = val
-        actionsNode.properties.forEach(prop => {
-          if (t.isIdentifier(prop.key)) {
-            actionsMap[prop.key.name] = '__'
-          }
-        })
-      } else if (key === 'load') {
-        loadNode = val
-      }
-    })
-
-    path.node.declaration = t.callExpression(
-      t.identifier('component'),
-      [
-        t.stringLiteral(cid),
-        t.functionExpression(
-          null,
-          [t.identifier('props'), !stateNode && t.identifier('_')].filter(Boolean),
-          t.blockStatement(
-            [
-              stateNode && t.variableDeclaration(
-                'const',
-                [
-                  t.variableDeclarator(
-                    t.arrayPattern(
-                      [
-                        t.identifier('_'),
-                        t.identifier('$')
-                      ]
-                    ),
-                    t.callExpression(
-                      t.memberExpression(t.thisExpression(), t.identifier('im')),
-                      [stateNode, t.identifier('arguments')]
-                    )
-                  )
-                ]
-              ),
-              loadNode && t.expressionStatement(t.callExpression(
-                t.memberExpression(t.thisExpression(), t.identifier('ef')),
-                [Array.isArray(loadNode) ? t.functionExpression(null, loadNode[0], loadNode[1]) : loadNode]
-              )),
-              actionsNode && t.variableDeclaration(
-                'const',
-                [
-                  t.variableDeclarator(t.identifier('__'), actionsNode)
-                ]
-              ),
-              t.returnStatement(
-                this._transformTagTemplate(template, !!stateNode, actionsMap, componentsMap)
-              )
-            ].filter(Boolean)
-          )
-        )
-      ]
-    )
-  }
-
   _transformScript (code, template, cid) {
-    const self = this
+    let exportDefault
+    const offset = this.htm.codeOffset
+    const stateVars = {}
+    let templateNode = null
+    const getTemplateLiteral = this._transformTagTemplate.bind(this, template)
+    const findEDD = (path, depth) => {
+      let p = path
+      try {
+        for (let i = 0; i < depth; (i++, p = p.parentPath));
+      } catch (err) {
+        return false
+      }
+      return p && t.isExportDefaultDeclaration(p.node)
+    }
     const visitor = {
       ExportDefaultDeclaration (path) {
-        return self._transformExportDefault(path, template, cid)
+        exportDefault = path.node.declaration
+        if (!t.isFunctionDeclaration(exportDefault)) {
+          throw new Error('component must export a function as default.')
+        }
+        const { id, params, body } = path.node.declaration
+        path.node.declaration = t.callExpression(
+          t.identifier('component'),
+          [
+            t.stringLiteral(cid),
+            t.functionExpression(id, params, body)
+          ]
+        )
       },
-      // AssignmentExpression (path) {
-      //   if (
-      //     t.isIdentifier(path.node.left) && path.node.left.name === '$' &&
-      //     (t.isFunctionExpression(path.node.right) || t.isArrowFunctionExpression(path.node.right))
-      //   ) {
-      //     path.replaceWith(
-      //       t.callExpression(path.node.left, [path.node.right])
-      //     )
-      //   }
-      // }
+      ReturnStatement (path) {
+        if (findEDD(path, 4) && path.node.argument !== templateNode) {
+          path.remove()
+        }
+      },
+      FunctionExpression: {
+        exit (path) { // wait stateVars to be filled.
+          if (findEDD(path, 2)) {
+            const scopeVars = path.scope.getAllBindings()
+            // current scope bindings,
+            // template global vars
+            // state vars
+            // common globals + defined globals
+            templateNode = getTemplateLiteral(stateVars, scopeVars)
+            path.get('body').pushContainer('body', t.returnStatement(templateNode))
+          }
+        }
+      },
+      CallExpression (path) {
+        if (path.node.callee.name !== '$') return
+        if (!findEDD(path, 4)) return
+        path.replaceWith(t.callExpression(
+          t.memberExpression(t.thisExpression(), t.identifier('ef')),
+          path.node.arguments
+        ))
+      },
+      AssignmentExpression (path) {
+        if (path.node.operator !== '=') return
+        if (!t.isIdentifier(path.node.left)) return
+        if (path.node.left.name !== 'state') return
+        if (!findEDD(path, 5)) return
+        if (!t.isObjectExpression(path.node.right)) {
+          throw new Error('state assignment must be object literal.')
+        }
+        path.node.right.properties.forEach(prop => {
+          if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
+            stateVars[prop.key.name] = true
+          }
+        })
+        path.replaceWith(t.variableDeclaration(
+          'var',
+          [
+            t.variableDeclarator(
+              t.arrayPattern(
+                [
+                  t.identifier('state'),
+                  t.identifier('$')
+                ]
+              ),
+              t.callExpression(
+                t.memberExpression(t.thisExpression(), t.identifier('im')),
+                [path.node.right]
+              )
+            )
+          ]
+        ))
+      },
+      LabeledStatement (path) {
+        if (path.node.label.name !== '$') {
+          const line = path.node.loc.start.line + offset
+          throw new Error(`Unexpected labeled statement: "${path.node.label.name}" at line ${line}.`)
+        }
+        path.replaceWith(t.callExpression(t.identifier('$'), [
+          t.arrowFunctionExpression(
+            [t.identifier('state')],
+            t.isExpressionStatement(path.node.body) ? t.blockStatement([path.node.body]) : path.node.body
+          )
+        ]))
+      }
     }
     return babel.transformAsync(code, {
       sourceMaps: this.options.sourceMaps,
