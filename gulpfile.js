@@ -21,4 +21,13 @@ exports.copy = function () {
   ]).pipe(dest('./'))
 }
 
+exports.gitpush = function (done) {
+  const { execSync } = require('child_process')
+  const d = new Date
+  const date = d.toLocaleString()
+  execSync(`git status && git commit -am "${date}" && git push && npx open-cli https://github.com/lovetingyuan/zip-files/deployments`, {
+    cwd: __dirname
+  }, done)
+}
+
 exports.default = series([exports.clean, exports.copy])
