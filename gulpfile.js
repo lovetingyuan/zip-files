@@ -1,7 +1,7 @@
 const { src, dest, series } = require('gulp')
 const path = require('path')
 const fs = require('fs')
-const { execSync } = require('child_process')
+const { exec } = require('child_process')
 
 exports.clean = function (done) {
   fs.readdirSync(__dirname).forEach(file => {
@@ -25,7 +25,7 @@ exports.copy = function () {
 exports.deploy = function (done) {
   const d = new Date
   const date = d.toLocaleString()
-  execSync(`git status && git commit -am "${date}" && git push`, {
+  exec(`git status && git commit -am "${date}" && git push`, {
     cwd: __dirname
   }, (err) => {
     if (err) return done(err)
