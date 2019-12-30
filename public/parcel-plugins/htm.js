@@ -37,6 +37,8 @@ const globalVars = {
   process: true
 }
 
+const STATE_NAME = 'state'
+
 module.exports = class HtmAsset extends Asset {
   constructor (name, options) {
     super(name, options)
@@ -135,8 +137,8 @@ if (module.hot) {
 }`
   }
 
-  _transformTagTemplate (template, stateVars, bindings) {
-    if (!Object.keys(stateVars).length) {
+  _transformTagTemplate (template, stateVars, thisVars, scopeBindings) {
+    if (!Object.keys(stateVars).length && !Object.keys(thisVars).length) {
       return t.taggedTemplateExpression(
         t.memberExpression(t.identifier('this'), t.identifier('h')),
         t.templateLiteral([
@@ -157,15 +159,21 @@ if (module.hot) {
         }
         scopeGlobals = path.scope.globals
       },
-      Identifier (path) { // auto bind state variables in template
+      Identifier (path) { // auto bind state and scope variables in template
         const name = path.node.name
         if (
           (name in commonGlobals) ||
-          (name in bindings) ||
+          (name in scopeBindings) ||
+          path.scope.hasBinding(name) ||
           !(name in scopeGlobals) ||
-          !(name in stateVars) ||
-          path.scope.hasBinding(name)
+          (
+            !(name in stateVars) &&
+            !(name in thisVars)
+          )
         ) return
+        if ((name in stateVars) && (name in thisVars)) {
+          throw new Error(`state property name "${name}" can not be same as property of this expression.`)
+        }
         if (t.isVariableDeclarator(path.parent)) {
           if (path.key !== 'init') return
         }
@@ -175,7 +183,7 @@ if (module.hot) {
         if (t.isObjectProperty(path.parent)) {
           if (path.key === 'key' && !path.parent.computed) return
         }
-        path.replaceWith(t.memberExpression(t.identifier('state'), path.node))
+        path.replaceWith(t.memberExpression(t.identifier(thisVars[name] || stateVars[name]), path.node))
       }
     }
     const result = babel.transformSync('this.h`' + template + '`', {
@@ -193,7 +201,9 @@ if (module.hot) {
     let exportDefault
     const offset = this.htm.codeOffset
     const stateVars = {}
+    const thisVars = {}
     let templateNode = null
+    let hookName
     const getTemplateLiteral = this._transformTagTemplate.bind(this, template)
     const findEDD = (path, depth) => {
       let p = path
@@ -204,6 +214,7 @@ if (module.hot) {
       }
       return p && t.isExportDefaultDeclaration(p.node)
     }
+    let scopeName
     const visitor = {
       ExportDefaultDeclaration (path) {
         exportDefault = path.node.declaration
@@ -228,62 +239,82 @@ if (module.hot) {
         exit (path) { // wait stateVars to be filled.
           if (findEDD(path, 2)) {
             const scopeVars = path.scope.getAllBindings()
+            if (scopeName) {
+              scopeVars[scopeName] = true
+            }
             // current scope bindings,
             // template global vars
             // state vars
+            // this vars
             // common globals + defined globals
-            templateNode = getTemplateLiteral(stateVars, scopeVars)
+            templateNode = getTemplateLiteral(stateVars, thisVars, scopeVars)
             path.get('body').pushContainer('body', t.returnStatement(templateNode))
+            if (scopeName) {
+              path.get('body').unshiftContainer('body', t.variableDeclaration('const', [
+                t.variableDeclarator(t.identifier(scopeName), t.objectExpression([]))
+              ]))
+            }
           }
         }
-      },
-      CallExpression (path) {
-        if (path.node.callee.name !== '$') return
-        if (!findEDD(path, 4)) return
-        path.replaceWith(t.callExpression(
-          t.memberExpression(t.thisExpression(), t.identifier('ef')),
-          path.node.arguments
-        ))
       },
       AssignmentExpression (path) {
         if (path.node.operator !== '=') return
-        if (!t.isIdentifier(path.node.left)) return
-        if (path.node.left.name !== 'state') return
         if (!findEDD(path, 5)) return
-        if (!t.isObjectExpression(path.node.right)) {
-          throw new Error('state assignment must be object literal.')
-        }
-        path.node.right.properties.forEach(prop => {
-          if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
-            stateVars[prop.key.name] = true
+        if (
+          t.isMemberExpression(path.node.left) &&
+          t.isThisExpression(path.node.left.object) &&
+          !path.node.left.computed &&
+          t.isIdentifier(path.node.left.property)
+        ) {
+          if (path.node.left.property.name === 'onload') {
+            path.replaceWith(t.callExpression(
+              t.memberExpression(t.thisExpression(), t.identifier('ef')),
+              [path.node.right]
+            ))
+          } else {
+            path.node.left.object = t.identifier(scopeName || (scopeName = path.scope.generateUid('_')))
+            thisVars[path.node.left.property.name] = scopeName
           }
-        })
-        path.replaceWith(t.variableDeclaration(
-          'var',
-          [
-            t.variableDeclarator(
-              t.arrayPattern(
-                [
-                  t.identifier('state'),
-                  t.identifier('$')
-                ]
-              ),
-              t.callExpression(
-                t.memberExpression(t.thisExpression(), t.identifier('im')),
-                [path.node.right]
+        } else if (t.isIdentifier(path.node.left) && path.node.left.name === STATE_NAME) {
+          hookName = path.scope.generateUid('$')
+          if (!t.isObjectExpression(path.node.right)) {
+            throw new Error('state assignment must be object literal.')
+          }
+          path.node.right.properties.forEach(prop => {
+            if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
+              stateVars[prop.key.name] = STATE_NAME
+            }
+          })
+          path.replaceWithMultiple(t.variableDeclaration(
+            'const',
+            [
+              t.variableDeclarator(
+                t.arrayPattern(
+                  [
+                    t.identifier(STATE_NAME),
+                    t.identifier(hookName)
+                  ]
+                ),
+                t.callExpression(
+                  t.memberExpression(t.thisExpression(), t.identifier('im')),
+                  [path.node.right]
+                )
               )
-            )
-          ]
-        ))
+            ]
+          ))
+        }
       },
       LabeledStatement (path) {
         if (path.node.label.name !== '$') {
           const line = path.node.loc.start.line + offset
           throw new Error(`Unexpected labeled statement: "${path.node.label.name}" at line ${line}.`)
         }
-        path.replaceWith(t.callExpression(t.identifier('$'), [
+        if (!hookName) {
+          throw new Error('state must be initialized before using "$" label statement.')
+        }
+        path.replaceWith(t.callExpression(t.identifier(hookName), [
           t.arrowFunctionExpression(
-            [t.identifier('state')],
+            [t.identifier(STATE_NAME)],
             t.isExpressionStatement(path.node.body) ? t.blockStatement([path.node.body]) : path.node.body
           )
         ]))

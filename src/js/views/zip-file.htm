@@ -38,12 +38,12 @@
       renameFile: '',
       doing: false
     }
-    const fileList = Object.keys(state.files).map(name => {
+    const fileList = Object.keys(state.files).map(name => { // eslint-disable-line
       return state.files[name]
     }).sort((f1, f2) => {
       return f1.index - f2.index
     })
-    const onSelectFile = (evt) => {
+    this.onSelectFile = (evt) => {
       Object.keys(evt.target.files).forEach((index) => {
         const file = evt.target.files[index]
         if (state.files[file.name]) {
@@ -58,7 +58,7 @@
         }
       })
     }
-    const start = (evt) => {
+    this.start = (evt) => {
       if (state.doing) {
         return
       }
@@ -78,7 +78,7 @@
         window.alert(`抱歉，打包失败了，可能文件太大或文件名太奇怪。${err.message}`)
       })
     }
-    const onRemove = (evt) => {
+    this.onRemove = (evt) => {
       const filename = evt.target.parentNode.dataset.fileName
       if (filename === state.renameFile) {
         $: state.renameFile = ''
@@ -90,24 +90,24 @@
         }
       }
     }
-    const clearAll = (evt) => {
+    this.clearAll = (evt) => {
       if (window.confirm('重新来？')) {
         const fileinput = evt.target.previousElementSibling
         $: state.files = {}
         fileinput.value = null
       }
     }
-    const onfocus = (evt) => {
+    this.onfocus = (evt) => {
       if (evt.target.value === state.defaultFilename) {
         evt.target.value = ''
       }
     }
-    const onblur = (evt) => {
+    this.onblur = (evt) => {
       if (!evt.target.value) {
         evt.target.value = state.defaultFilename
       }
     }
-    const onEdit = (evt) => {
+    this.onEdit = (evt) => {
       const filename = evt.target.parentNode.dataset.fileName
       if (state.renameFile === filename) { // editing
         const input = evt.target.parentElement.querySelector('.file-name-input')
@@ -128,7 +128,6 @@
         $: state.renameFile = filename
       }
     }
-    return { onSelectFile, onblur, onfocus, onEdit, clearAll, start, fileList, onRemove }
   }
 </script>
 

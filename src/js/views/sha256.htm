@@ -12,21 +12,22 @@
 <script>
   const shaurl = 'https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js'
   const copyurl = 'https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js'
+  const btns = [8, 16, 20, 32, 64]
+
   export default function () {
     state = {
       result: '',
       readycopy: false
     }
-    const btns = [8, 16, 20, 32, 64]
-    $(() => {
+    this.onload = () => {
       if (!window.ClipboardJS) {
         window.loadScript(copyurl).then(() => {
           new window.ClipboardJS('[data-clipboard-text]') // eslint-disable-line
           $: state.readycopy = true
         })
       }
-    })
-    const sha256 = evt => {
+    }
+    this.sha256 = evt => {
       const value = evt.target.value
       if (value) {
         Promise.resolve(window.sha256 || window.loadScript(shaurl)).then(() => {
@@ -36,9 +37,26 @@
         $: state.result = ''
       }
     }
-    return { btns, sha256 }
+    this.btns = btns
   }
 </script>
+<!-- 
+<script>
+  const shaurl = 'https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js'
+  const copyurl = 'https://cdn.jsdelivr.net/npm/clipboard@2/dist/clipboard.min.js'
+  const btns = [8, 16, 20, 32, 64]
+
+  export default function () {
+    state = {
+      result: '',
+      readycopy: false
+    }
+    this.onload = () => {
+
+    }
+    this.sha256 = evt => {}
+  }
+</script> -->
 
 <style scoped>
   textarea {
