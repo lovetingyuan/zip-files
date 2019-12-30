@@ -30,7 +30,7 @@ exports.deploy = function (done) {
   }, (err) => {
     if (err) return done(err)
     setTimeout(() => {
-      console.log('done, see https://github.com/lovetingyuan/zip-files/deployments')
+      process.stdout.write('done, see https://github.com/lovetingyuan/zip-files/deployments')
       done()
     }, 3000)
   })
