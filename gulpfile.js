@@ -27,12 +27,13 @@ exports.deploy = function (done) {
   const date = d.toLocaleString()
   exec(`git status && git commit -am "${date}" && git push`, {
     cwd: __dirname
-  }, (err) => {
+  }, (err, stdout) => {
     if (err) return done(err)
+    process.stdout.write(stdout + '\n')
     setTimeout(() => {
       process.stdout.write('Done, see https://github.com/lovetingyuan/zip-files/deployments\n')
       done()
-    }, 3000)
+    }, 2000)
   })
 }
 
