@@ -59,9 +59,7 @@
       })
     }
     this.start = (evt) => {
-      if (state.doing) {
-        return
-      }
+      if (state.doing) return
       let distName = evt.target.parentElement.querySelector('.dist-input').value
       while (distName === '') {
         distName = window.prompt('保存的文件名称:')
@@ -72,7 +70,9 @@
       }
       $: state.doing = true
       zipFiles(state.files, distName).then(() => {
-        $: state.doing = false
+        setTimeout(() => {
+          $: state.doing = false
+        }, 1000)
       }).catch(err => {
         $: state.doing = false
         window.alert(`抱歉，打包失败了，可能文件太大或文件名太奇怪。${err.message}`)
