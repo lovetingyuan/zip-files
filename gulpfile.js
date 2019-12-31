@@ -11,7 +11,7 @@ if (!pkg._config) {
 
 const distDir = path.join(__dirname, pkg._config.dist || 'dist')
 
-exports.clean = function() {
+exports.clean = function () {
   return fse.remove(distDir)
 }
 
@@ -88,8 +88,8 @@ function injectServiceWorker (doc, publicPath) {
     const dirpath = path.join(base, ...dirs)
     fse.readdirSync(dirpath).forEach(f => {
       if (f[0] === '.') return
-      let file = path.join(dirpath, f)
-      let isDirectory = fse.statSync(file).isDirectory()
+      const file = path.join(dirpath, f)
+      const isDirectory = fse.statSync(file).isDirectory()
       isDirectory ? walkDir(base, dirs.concat(f), list) : list.push(path.join(...dirs, f))
     })
     return list
@@ -129,7 +129,7 @@ exports.prerender = function (done) {
   try {
     const xhrUtilsPatch = require('jsdom/lib/jsdom/living/xhr-utils')
     const originValidCORSHeaders = xhrUtilsPatch.validCORSHeaders
-    xhrUtilsPatch.validCORSHeaders = function validCORSHeaders(xhr, response) {
+    xhrUtilsPatch.validCORSHeaders = function validCORSHeaders (xhr, response) {
       response.headers['access-control-allow-origin'] = '*'
       response.headers['access-control-allow-credentials'] = 'true'
       return originValidCORSHeaders.apply(this, arguments)
@@ -175,8 +175,8 @@ exports.prerender = function (done) {
 exports.default = series(
   parallel(
     exports.cleanuselessassets,
-    exports.copypublic,
+    exports.copypublic
   ),
   exports.posthtml,
-  exports.prerender,
+  exports.prerender
 )

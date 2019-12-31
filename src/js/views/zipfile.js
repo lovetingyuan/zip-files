@@ -13,13 +13,10 @@ function readFile ({ file, name }) {
 }
 
 export default function zipFiles (files, zipName) {
-  const filesContent = Object.keys(files).map(name => {
-    return readFile(files[name])
-  })
   return Promise.all([
     window.FileSaver || window.loadScript(filesaver),
     window.JSZip || window.loadScript(jszip),
-    ...filesContent
+    ...Object.keys(files).map(name => readFile(files[name]))
   ]).then(contents => {
     const zip = new window.JSZip()
     contents.forEach((file) => {

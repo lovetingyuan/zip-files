@@ -12,6 +12,10 @@ html, body, #root {
   height: 100%;
 }
 
+body {
+  border-top: 6px solid var(--theme-color);
+}
+
 #root {
   color: #555;
   max-width: 500px;
