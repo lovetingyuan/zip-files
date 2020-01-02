@@ -2,14 +2,8 @@ import { neverland as $, render, html, useState, useCallback, useEffect } from '
 import produce from 'immer'
 import classNames from 'classnames'
 
-function useImmer (state) {
-  const [val, updateValue] = useState(state)
-  return [val, useCallback(updater => {
-    updateValue(produce(updater))
-  }, [])]
-}
+const components = Object.create(null)
 
-const components = {}
 window.component = function component (id, comp) {
   const stateless = comp.length > 1
   comp = comp.bind(context)
@@ -20,15 +14,20 @@ window.component = function component (id, comp) {
 const context = {
   h: html,
   cn: classNames,
-  im: useImmer,
   ef: useEffect,
+  im (state) {
+    const [val, updateValue] = useState(state)
+    return [val, useCallback(updater => {
+      updateValue(produce(updater))
+    }, [])]
+  },
   c (id, props = context.p) {
     if (!id) return
     return components[id](Object.freeze(props))
   }
 }
 
-let translation = {}
+let translation = Object.create(null)
 const transReg = /\{\{([^{}]+)?\}\}/g
 const tagReg = /<[a-zA-Z_][^>]*>/ // maybe contain tag
 
@@ -37,31 +36,36 @@ window.startApp = function startApp ({ target, component, i18n }) {
   translation = i18n || {}
   render.call(context, container, component)
   window.__prerender__ && setTimeout(window.__prerender__.bind(null, container.outerHTML))
-  if (module.hot) {
-    window.addEventListener('__ssb_hmr__', (evt) => {
-      const { cid } = evt.detail
-      try {
-        document.querySelectorAll(`[data-comp-id="${cid}"]`).forEach(compDom => {
-          render.call(context, compDom, components[cid](compDom.props))
-        })
-      } catch (err) {
-        console.warn('hot-reload error: ', err)
-        window.location.reload()
-      }
-    })
-  }
+}
+
+if (process.env.NODE_ENV !== 'production' && module.hot) {
+  window.addEventListener('__ssb_hmr__', (evt) => {
+    const { cid } = evt.detail
+    try {
+      document.querySelectorAll(`[data-comp-id="${cid}"]`).forEach(compDom => {
+        render.call(context, compDom, components[cid](compDom.props))
+      })
+    } catch (err) {
+      console.warn('hot-reload error: ', err)
+      window.location.reload()
+    }
+  })
 }
 
 window.t = function t (key, param = {}) {
   if (!(key in translation)) {
-    console.warn(`i18n: translation key "${key}" is missing.`)
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`i18n: translation key "${key}" is missing.`)
+    }
     return key
   }
   const result = translation[key].replace(transReg, (s, v) => {
     v = v.trim()
     if (!v) return ''
     if (!(v in param)) {
-      console.warn(`i18n: param ${v} is missed for translation ${key}, ${translation[key]}.`)
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`i18n: param ${v} is missed for translation ${key}, ${translation[key]}.`)
+      }
       return ''
     }
     return param[v]
