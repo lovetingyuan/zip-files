@@ -1,11 +1,11 @@
 /* eslint-disable */
 
-const filesToCache = ["/zip-files/?source=pwa","404.html","LICENSE.txt","favicon.84292e5e.ico","favicon.ico","humans.txt","icon.585561b6.png","icons/icon-128x128.png","icons/icon-144x144.png","icons/icon-152x152.png","icons/icon-192x192.png","icons/icon-384x384.png","icons/icon-512x512.png","icons/icon-72x72.png","icons/icon-96x96.png","icons/icon.png","index.html","main.28e0a2a5.js","main.ae5c30e4.css","robots.txt","site.webmanifest","vendor.36cb5d1f.css","vendor.923ef56d.js"]
+const filesToCache = ["/zip-files/?source=pwa","404.html","LICENSE.txt","favicon.26242483.ico","favicon.84292e5e.ico","favicon.ico","humans.txt","icon.585561b6.png","icon.bcc273a1.png","icons/icon-128x128.png","icons/icon-144x144.png","icons/icon-152x152.png","icons/icon-192x192.png","icons/icon-384x384.png","icons/icon-512x512.png","icons/icon-72x72.png","icons/icon-96x96.png","icons/icon.png","index.html","index.js","index.js.map","main.28e0a2a5.js","main.5936f934.css","main.5936f934.css.map","main.5936f934.js","main.5936f934.js.map","main.7d0673e5.js","main.ae5c30e4.css","main.f2975e0d.css","robots.txt","site.webmanifest","sw.js","vendor.36cb5d1f.css","vendor.923ef56d.js","vendor.f1881bfd.css","vendor.f1881bfd.css.map","vendor.f1881bfd.js","vendor.f1881bfd.js.map"]
 
-const staticCacheName = 'zip-files_' + "1.1.0"
+const staticCacheName = "zip-online" + '@' + "1.1.0"
 
 self.addEventListener('install', event => {
-  console.log('Attempting to install service worker and cache static assets')
+  // console.log('Attempting to install service worker and cache static assets')
   event.waitUntil(
     caches.open(staticCacheName)
       .then(cache => {
@@ -17,16 +17,16 @@ self.addEventListener('install', event => {
 const isHashedFile = file => /\S\.[a-z0-9]{8}\.\S/.test(file)
 
 self.addEventListener('fetch', event => {
-  console.log('Fetch event for ', event.request.url);
+  // console.log('Fetch event for ', event.request.url);
   event.respondWith(
     caches.match(event.request)
       .then(response => {
         if (response) {
-          console.log('Found ', event.request.url, ' in cache')
+          // console.log('Found ', event.request.url, ' in cache')
           const requestpath = event.request.url.split('?')[0]
           if (!isHashedFile(requestpath) && navigator.onLine) {
             // if file is not long-term cached, we update it everytime(online).
-            console.log('Update request ' + event.request.url + ' in cache')
+            // console.log('Update request ' + event.request.url + ' in cache')
             fetch(event.request).then(response => {
               return caches.open(staticCacheName).then(cache => {
                 cache.put(event.request, response.clone())
@@ -36,7 +36,7 @@ self.addEventListener('fetch', event => {
           }
           return response
         }
-        console.log('Network request for ', event.request.url, self, typeof navigator && navigator)
+        // console.log('Network request for ', event.request.url, self, typeof navigator && navigator)
         return fetch(event.request).then(response => {
         // TODO 5 - Respond with custom 404 page
           return caches.open(staticCacheName).then(cache => {
