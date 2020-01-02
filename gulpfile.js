@@ -37,4 +37,10 @@ exports.deploy = function (done) {
   })
 }
 
+Object.keys(exports).forEach(name => {
+  if (typeof exports[name] === 'function' && !exports[name].name && !exports[name].displayName) {
+    exports[name].displayName = name
+  }
+})
+
 exports.default = series([exports.clean, exports.copy, exports.deploy])
