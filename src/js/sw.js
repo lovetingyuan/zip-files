@@ -2,10 +2,10 @@
 
 const filesToCache = CACHE_LIST
 
-const staticCacheName = 'zip-files_' + APP_VERSION
+const staticCacheName = APP_NAME + '@' + APP_VERSION
 
 self.addEventListener('install', event => {
-  console.log('Attempting to install service worker and cache static assets')
+  // console.log('Attempting to install service worker and cache static assets')
   event.waitUntil(
     caches.open(staticCacheName)
       .then(cache => {
@@ -17,16 +17,16 @@ self.addEventListener('install', event => {
 const isHashedFile = file => /\S\.[a-z0-9]{8}\.\S/.test(file)
 
 self.addEventListener('fetch', event => {
-  console.log('Fetch event for ', event.request.url);
+  // console.log('Fetch event for ', event.request.url);
   event.respondWith(
     caches.match(event.request)
       .then(response => {
         if (response) {
-          console.log('Found ', event.request.url, ' in cache')
+          // console.log('Found ', event.request.url, ' in cache')
           const requestpath = event.request.url.split('?')[0]
           if (!isHashedFile(requestpath) && navigator.onLine) {
             // if file is not long-term cached, we update it everytime(online).
-            console.log('Update request ' + event.request.url + ' in cache')
+            // console.log('Update request ' + event.request.url + ' in cache')
             fetch(event.request).then(response => {
               return caches.open(staticCacheName).then(cache => {
                 cache.put(event.request, response.clone())
@@ -36,7 +36,7 @@ self.addEventListener('fetch', event => {
           }
           return response
         }
-        console.log('Network request for ', event.request.url, self, typeof navigator && navigator)
+        // console.log('Network request for ', event.request.url, self, typeof navigator && navigator)
         return fetch(event.request).then(response => {
         // TODO 5 - Respond with custom 404 page
           return caches.open(staticCacheName).then(cache => {

@@ -12,10 +12,6 @@ if (!pkg._config) {
 const distDir = path.join(__dirname, pkg._config.dist || 'dist')
 
 exports.clean = function () {
-  return fse.remove(distDir)
-}
-
-exports.cleanuselessassets = function () {
   return fse.readdir(distDir).then(files => {
     const removedfiles = files
       .filter(f => /^icon-\S+?[0-9a-z]{8}\.png$/.test(f))
@@ -29,19 +25,10 @@ exports.copypublic = function () {
     .pipe(dest(distDir))
 }
 
-function preloadAndInline (doc, inlineSize) {
-  const resolve = f => path.join(distDir, f)
-  const builtinfo = doc.getElementById('built-time')
-  if (builtinfo) {
-    builtinfo.innerHTML = builtinfo.innerHTML.replace(/window\.BUILTIME/, JSON.stringify([
-      Date.now(),
-      process.env.npm_package_name,
-      process.env.npm_package_version,
-      require('git-rev-sync').short(null, 10)
-    ]))
-  }
+function preloadandinline (doc, inlineSize) {
+  const resolve = f => path.basename(path.join(distDir, f))
   doc.querySelectorAll('script[src]').forEach(dom => {
-    const file = resolve(path.basename(dom.src))
+    const file = resolve(dom.src)
     if (!fse.existsSync(file)) return
     if (fse.lstatSync(file).size <= inlineSize) {
       dom.removeAttribute('src')
@@ -55,7 +42,7 @@ function preloadAndInline (doc, inlineSize) {
     }
   })
   doc.querySelectorAll('link[rel=stylesheet][href]').forEach(dom => {
-    const file = resolve(path.basename(dom.href))
+    const file = resolve(dom.href)
     if (!fse.existsSync(file)) return
     if (fse.lstatSync(file).size <= inlineSize) {
       const style = doc.createElement('style')
@@ -69,7 +56,7 @@ function preloadAndInline (doc, inlineSize) {
   })
 }
 
-function injectServiceWorker (doc, publicPath) {
+function injectserviceworker (doc, publicPath) {
   const swfilename = 'sw.js'
   if (doc) {
     const script = doc.createElement('script')
@@ -80,7 +67,6 @@ function injectServiceWorker (doc, publicPath) {
       });
     }
     `.replace(/\s{2,}/mg, ' ')
-    script.id = 'service-worker'
     doc.body.appendChild(script)
   }
   let swcode = fse.readFileSync(require.resolve('./src/js/sw.js'), 'utf8')
@@ -95,8 +81,33 @@ function injectServiceWorker (doc, publicPath) {
     return list
   }
   swcode = swcode.replace('CACHE_LIST', JSON.stringify(['/zip-files/?source=pwa', ...walkDir(distDir)]))
+    .replace('APP_NAME', JSON.stringify(pkg.name))
     .replace('APP_VERSION', JSON.stringify(pkg.version))
   fse.outputFileSync(path.join(distDir, swfilename), swcode)
+}
+
+function printbuiltinfo (doc) {
+  const builtime = doc.createElement('script')
+  /* eslint-disable */
+  const builtimefunc = function () {
+    var v = window.BUILTIME;
+    var d = new Date(v[0]);
+    var s = [d.getFullYear(), '/', d.getMonth() + 1, '/', d.getDate(), ' ', d.getHours(), ':', d.getMinutes()];
+    console.log(
+      '%c' + v[1] + '(' + v[2] + '): ' + s.join('') + ' ' + v[3],
+      'background:#EE4D2D;color:#fff;padding:2px 10px;border-radius:2px;'
+    );
+  }
+  /* eslint-enable */
+  builtime.textContent = `(${builtimefunc.toString().replace(
+    'window.BUILTIME', JSON.stringify([
+      Date.now(),
+      process.env.npm_package_name,
+      process.env.npm_package_version,
+      require('git-rev-sync').short(null, 10)
+    ])
+  ).replace(/\s{2,}/mg, ' ')})()`
+  doc.body.appendChild(builtime)
 }
 
 exports.posthtml = function () {
@@ -105,8 +116,9 @@ exports.posthtml = function () {
     .pipe(through2.obj(function (file, _, cb) {
       if (!file.isBuffer()) throw file
       const dom = new JSDOM(file.contents.toString())
-      preloadAndInline(dom.window.document, pkg._config.inlineSize || 10000)
-      injectServiceWorker(dom.window.document, pkg._config.publicPath || '/')
+      preloadandinline(dom.window.document, pkg._config.inlineSize || 10000)
+      injectserviceworker(dom.window.document, pkg._config.publicPath || '/')
+      printbuiltinfo(dom.window.document)
       file.contents = Buffer.from(dom.serialize())
       cb(null, file)
     }))
@@ -172,9 +184,15 @@ exports.prerender = function (done) {
   })
 }
 
+Object.keys(exports).forEach(name => {
+  if (typeof exports[name] === 'function' && !exports[name].name && !exports[name].displayName) {
+    exports[name].displayName = name
+  }
+})
+
 exports.default = series(
   parallel(
-    exports.cleanuselessassets,
+    exports.clean,
     exports.copypublic
   ),
   exports.posthtml,

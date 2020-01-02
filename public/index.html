@@ -14,13 +14,9 @@
   <meta name="theme-color" content="#EE4D2D">
   <link rel="preconnect" href="//cdn.jsdelivr.net" crossorigin>
   <link rel="dns-prefetch" href="//cdn.jsdelivr.net">
-  <style>
-    :root {
-      --theme-color: #EE4D2D;
-    }
-  </style>
+  <style> :root { --theme-color: #EE4D2D; } </style>
   <!-- add id to prevent parcel from merging inline scripts, see https://github.com/posthtml/htmlnano#mergescripts -->
-  <script id="global">
+  <script>
     window.ThemeColor = '#EE4D2D';
     window.Promise||document.write('<script src="https://cdn.jsdelivr.net/npm/es6-promise/dist/es6-promise.auto.min.js"><\/script>');
   </script>
@@ -38,19 +34,6 @@
 
   <script src="../src/js/vendor.js"></script>
   <script src="../src/js/main.js"></script>
-
-  <script id="built-time">
-    (function(){
-      var vals = window.BUILTIME;
-      if (!vals) return;
-      var d = new Date(+vals[0]);
-      var str = [d.getFullYear(), '/', d.getMonth() + 1, '/', d.getDate(), ' ', d.getHours(), ':', d.getMinutes()];
-      console.log(
-        '%c' + vals[1] + '(' + vals[2] + '): ' + str.join('') + ' ' + vals[3],
-        'background:' + window.ThemeColor + ';color:#fff;padding:2px 10px;border-radius:2px'
-      );
-    })()
-  </script>
 </body>
 
 </html>
