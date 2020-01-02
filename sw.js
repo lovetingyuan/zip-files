@@ -1,6 +1,6 @@
 /* eslint-disable */
 
-const filesToCache = ["/zip-files/?source=pwa","404.html","LICENSE.txt","favicon.26242483.ico","favicon.84292e5e.ico","favicon.ico","humans.txt","icon.585561b6.png","icon.bcc273a1.png","icons/icon-128x128.png","icons/icon-144x144.png","icons/icon-152x152.png","icons/icon-192x192.png","icons/icon-384x384.png","icons/icon-512x512.png","icons/icon-72x72.png","icons/icon-96x96.png","icons/icon.png","index.html","index.js","index.js.map","main.28e0a2a5.js","main.5936f934.css","main.5936f934.css.map","main.5936f934.js","main.5936f934.js.map","main.7d0673e5.js","main.ae5c30e4.css","main.f2975e0d.css","robots.txt","site.webmanifest","sw.js","vendor.36cb5d1f.css","vendor.923ef56d.js","vendor.f1881bfd.css","vendor.f1881bfd.css.map","vendor.f1881bfd.js","vendor.f1881bfd.js.map"]
+const filesToCache = ["/zip-files/?source=pwa","404.html","LICENSE.txt","favicon.84292e5e.ico","favicon.ico","humans.txt","icon.585561b6.png","icons/icon-128x128.png","icons/icon-144x144.png","icons/icon-152x152.png","icons/icon-192x192.png","icons/icon-384x384.png","icons/icon-512x512.png","icons/icon-72x72.png","icons/icon-96x96.png","icons/icon.png","index.html","main.7d0673e5.js","main.f2975e0d.css","robots.txt","site.webmanifest","vendor.36cb5d1f.css","vendor.923ef56d.js"]
 
 const staticCacheName = "zip-online" + '@' + "1.1.0"
 
