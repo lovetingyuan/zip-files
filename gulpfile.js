@@ -153,7 +153,7 @@ exports.prerender = function (done) {
   app.use(express.static(distDir))
   const port = process.env.PORT || 4200
   const appContentReg = /<!--\[if APP-START\]><!\[endif\]-->[\s\S]+?<!--\[if APP-END\]><!\[endif\]-->/m
-  const server = app.listen(process.env.PORT || 4200, (err) => {
+  const server = app.listen(port, (err) => {
     if (err) return done(err)
     const url = 'http://localhost:' + port
     const virtualConsole = new VirtualConsole()
@@ -170,14 +170,16 @@ exports.prerender = function (done) {
           return attr
         }
         window.__prerender__ = function (rendered) {
-          window.close()
-          server.close()
           const indexfilepath = path.join(distDir, 'index.html')
           fse.writeFileSync(
             indexfilepath,
             fse.readFileSync(indexfilepath, 'utf8').replace(appContentReg, rendered)
           )
-          done()
+          try {
+            window.close() // if there are remaining async tasks, window close may throw error.
+          } catch (err) {} finally {
+            server.close(done)
+          }
         }
       }
     }).catch(done)
