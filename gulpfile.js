@@ -5,11 +5,11 @@ const { src, dest, series, parallel } = require('gulp')
 const through2 = require('through2')
 const { JSDOM, VirtualConsole, ResourceLoader } = require('jsdom')
 const pkg = require('./package.json')
-if (!pkg._config) {
-  pkg._config = {}
+if (!pkg.config) {
+  pkg.config = {}
 }
 
-const distDir = path.join(__dirname, pkg._config.dist || 'dist')
+const distDir = path.join(__dirname, pkg.config.dist || 'dist')
 
 exports.clean = function () {
   return fse.readdir(distDir).then(files => {
@@ -21,7 +21,7 @@ exports.clean = function () {
 }
 
 exports.copypublic = function () {
-  return src(['public/**/*', '!public/index.html', '!public/parcel-plugins/**'])
+  return src(['public/**/*', '!public/index.html', '!public/htm-plugin.js', '!public/runtime.js'])
     .pipe(dest(distDir))
 }
 
@@ -116,8 +116,8 @@ exports.posthtml = function () {
     .pipe(through2.obj(function (file, _, cb) {
       if (!file.isBuffer()) throw file
       const dom = new JSDOM(file.contents.toString())
-      preloadandinline(dom.window.document, pkg._config.inlineSize || 10000)
-      injectserviceworker(dom.window.document, pkg._config.publicPath || '/')
+      preloadandinline(dom.window.document, pkg.config.inlineSize || 10000)
+      injectserviceworker(dom.window.document, pkg.config.publicPath || '/')
       printbuiltinfo(dom.window.document)
       file.contents = Buffer.from(dom.serialize())
       cb(null, file)
@@ -126,7 +126,7 @@ exports.posthtml = function () {
 }
 
 exports.prerender = function (done) {
-  if (!pkg._config.prerender) return done()
+  if (!pkg.config.prerender) return done()
   const _ignoreReq = new RegExp('google-analytics')
   class CustomResourceLoader extends ResourceLoader {
     fetch (url, options) {

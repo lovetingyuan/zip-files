@@ -1,7 +1,7 @@
 import 'normalize.css/normalize.css'
 import 'main.css/dist/main.css'
 
-import '../../public/parcel-plugins/runtime'
+import '../../public/runtime'
 
 ;(function () {
   var method

@@ -31,6 +31,7 @@
 
 <script>
   import zipFiles from './zipfile'
+  let fileindex = 0
   export default function () {
     state = {
       files: {},
@@ -38,7 +39,7 @@
       renameFile: '',
       doing: false
     }
-    const fileList = Object.keys(state.files).map(name => {
+    this.fileList = Object.keys(state.files).map(name => {
       return state.files[name]
     }).sort((f1, f2) => {
       return f1.index - f2.index
@@ -53,7 +54,7 @@
           state.files[file.name] = {
             name: file.name,
             file,
-            index: fileList.length
+            index: fileindex++
           }
         }
       })
