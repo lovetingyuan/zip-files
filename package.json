@@ -44,6 +44,10 @@
   },
   "eslintConfig": {
     "extends": "standard",
+    "env": {
+      "browser": true,
+      "serviceworker": true
+    },
     "globals": {
       "_": true,
       "state": true,

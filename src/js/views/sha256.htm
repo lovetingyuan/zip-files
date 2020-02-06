@@ -19,15 +19,7 @@
       result: '',
       readycopy: false
     }
-    this.onload = () => {
-      if (!window.ClipboardJS) {
-        window.loadScript(copyurl).then(() => {
-          new window.ClipboardJS('[data-clipboard-text]') // eslint-disable-line
-          $: state.readycopy = true
-        })
-      }
-    }
-    this.sha256 = evt => {
+    const sha256 = evt => {
       const value = evt.target.value
       if (value) {
         Promise.resolve(window.sha256 || window.loadScript(shaurl)).then(() => {
@@ -37,7 +29,14 @@
         $: state.result = ''
       }
     }
-    this.btns = btns
+    this.onload = () => {
+      if (!window.ClipboardJS) {
+        window.loadScript(copyurl).then(() => {
+          new window.ClipboardJS('[data-clipboard-text]') // eslint-disable-line
+          $: state.readycopy = true
+        })
+      }
+    }
   }
 </script>
 

@@ -1,8 +1,6 @@
-/* eslint-disable */
+const filesToCache = CACHE_LIST // eslint-disable-line
 
-const filesToCache = CACHE_LIST
-
-const staticCacheName = APP_NAME + '@' + APP_VERSION
+const staticCacheName = APP_NAME + '@' + APP_VERSION // eslint-disable-line
 
 self.addEventListener('install', event => {
   // console.log('Attempting to install service worker and cache static assets')

@@ -23,19 +23,7 @@ const requireAttrs = {
 const isBinding = val => val[0] === '{' && val[val.length - 1] === '}'
 const isDirective = val => /^data-(if|else|for|html)$/.test(val)
 
-const globalVars = {
-  props: true,
-  state: true,
-  $: true,
-  _: true,
-  arguments: true,
-  t: true,
-  require: true,
-  module: true,
-  __filename: true,
-  __dirname: true,
-  process: true
-}
+const reservedVars = ['$', '_', 't']
 
 const STATE_NAME = 'state'
 
@@ -137,8 +125,8 @@ if (module.hot) {
 }`
   }
 
-  _transformTagTemplate (template, stateVars, thisVars, scopeBindings) {
-    if (!Object.keys(stateVars).length && !Object.keys(thisVars).length) {
+  _transformTagTemplate (template, stateVars) {
+    if (!Object.keys(stateVars).length) {
       return t.taggedTemplateExpression(
         t.memberExpression(t.identifier('this'), t.identifier('h')),
         t.templateLiteral([
@@ -147,33 +135,16 @@ if (module.hot) {
       )
     }
     let scopeGlobals = null
-    let commonGlobals = null
     const visitor = {
       Program (path) {
-        const runtimeGlobals = path.scope.constructor.globals.reduce((a, b) => {
-          a[b] = true
-          return a
-        }, {})
-        commonGlobals = {
-          ...runtimeGlobals, ...globalVars
-        }
         scopeGlobals = path.scope.globals
       },
       Identifier (path) { // auto bind state and scope variables in template
         const name = path.node.name
         if (
-          (name in commonGlobals) ||
-          (name in scopeBindings) ||
-          path.scope.hasBinding(name) ||
           !(name in scopeGlobals) ||
-          (
-            !(name in stateVars) &&
-            !(name in thisVars)
-          )
+          path.scope.hasBinding(name)
         ) return
-        if ((name in stateVars) && (name in thisVars)) {
-          throw new Error(`state property name "${name}" can not be same as property of this expression.`)
-        }
         if (t.isVariableDeclarator(path.parent)) {
           if (path.key !== 'init') return
         }
@@ -183,7 +154,8 @@ if (module.hot) {
         if (t.isObjectProperty(path.parent)) {
           if (path.key === 'key' && !path.parent.computed) return
         }
-        path.replaceWith(t.memberExpression(t.identifier(thisVars[name] || stateVars[name]), path.node))
+        if (!(name in stateVars)) return
+        path.replaceWith(t.memberExpression(t.identifier(stateVars[name]), path.node))
       }
     }
     const result = babel.transformSync('this.h`' + template + '`', {
@@ -201,7 +173,7 @@ if (module.hot) {
     let exportDefault
     const offset = this.htm.codeOffset
     const stateVars = {}
-    const thisVars = {}
+    // const thisVars = {}
     let templateNode = null
     let hookName
     const getTemplateLiteral = this._transformTagTemplate.bind(this, template)
@@ -237,23 +209,13 @@ if (module.hot) {
       },
       FunctionExpression: {
         exit (path) { // wait stateVars to be filled.
-          if (findEDD(path, 2)) {
-            const scopeVars = path.scope.getAllBindings()
-            if (scopeName) {
-              scopeVars[scopeName] = true
-            }
-            // current scope bindings,
-            // template global vars
-            // state vars
-            // this vars
-            // common globals + defined globals
-            templateNode = getTemplateLiteral(stateVars, thisVars, scopeVars)
-            path.get('body').pushContainer('body', t.returnStatement(templateNode))
-            if (scopeName) {
-              path.get('body').unshiftContainer('body', t.variableDeclaration('const', [
-                t.variableDeclarator(t.identifier(scopeName), t.objectExpression([]))
-              ]))
-            }
+          if (!findEDD(path, 2)) return
+          templateNode = getTemplateLiteral(stateVars)
+          path.get('body').pushContainer('body', t.returnStatement(templateNode))
+          if (scopeName) {
+            path.get('body').unshiftContainer('body', t.variableDeclaration('const', [
+              t.variableDeclarator(t.identifier(scopeName), t.objectExpression([]))
+            ]))
           }
         }
       },
@@ -271,9 +233,6 @@ if (module.hot) {
               t.memberExpression(t.thisExpression(), t.identifier('ef')),
               [path.node.right]
             ))
-          } else {
-            path.node.left.object = t.identifier(scopeName || (scopeName = path.scope.generateUid('_')))
-            thisVars[path.node.left.property.name] = scopeName
           }
         } else if (t.isIdentifier(path.node.left) && path.node.left.name === STATE_NAME) {
           hookName = path.scope.generateUid('$')
@@ -282,6 +241,9 @@ if (module.hot) {
           }
           path.node.right.properties.forEach(prop => {
             if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
+              if (reservedVars.includes(prop.key.name)) {
+                throw new Error(`"${prop.key.name}" is a reserved variable name, can not be used in state.`)
+              }
               stateVars[prop.key.name] = STATE_NAME
             }
           })

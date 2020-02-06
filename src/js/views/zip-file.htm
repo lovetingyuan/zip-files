@@ -37,14 +37,14 @@
       files: {},
       defaultFilename: 'download.zip',
       renameFile: '',
-      doing: false
+      doing: false,
     }
-    this.fileList = Object.keys(state.files).map(name => {
+    const fileList = Object.keys(state.files).map(name => {
       return state.files[name]
     }).sort((f1, f2) => {
       return f1.index - f2.index
     })
-    this.onSelectFile = (evt) => {
+    const onSelectFile = (evt) => {
       Object.keys(evt.target.files).forEach((index) => {
         const file = evt.target.files[index]
         if (state.files[file.name]) {
@@ -59,7 +59,7 @@
         }
       })
     }
-    this.start = (evt) => {
+    const start = (evt) => {
       if (state.doing) return
       let distName = evt.target.parentElement.querySelector('.dist-input').value
       while (distName === '') {
@@ -79,7 +79,7 @@
         window.alert(`抱歉，打包失败了，可能文件太大或文件名太奇怪。${err.message}`)
       })
     }
-    this.onRemove = (evt) => {
+    const onRemove = (evt) => {
       const filename = evt.target.parentNode.dataset.fileName
       if (filename === state.renameFile) {
         $: state.renameFile = ''
@@ -91,24 +91,24 @@
         }
       }
     }
-    this.clearAll = (evt) => {
+    const clearAll = (evt) => {
       if (window.confirm('重新来？')) {
         const fileinput = evt.target.previousElementSibling
         $: state.files = {}
         fileinput.value = null
       }
     }
-    this.onfocus = (evt) => {
+    const onfocus = (evt) => {
       if (evt.target.value === state.defaultFilename) {
         evt.target.value = ''
       }
     }
-    this.onblur = (evt) => {
+    const onblur = (evt) => {
       if (!evt.target.value) {
         evt.target.value = state.defaultFilename
       }
     }
-    this.onEdit = (evt) => {
+    const onEdit = (evt) => {
       const filename = evt.target.parentNode.dataset.fileName
       if (state.renameFile === filename) { // editing
         const input = evt.target.parentElement.querySelector('.file-name-input')
