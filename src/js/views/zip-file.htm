@@ -3,11 +3,11 @@
 
   <div>
     <input type="file" data-text="选 择 文 件 📁" multiple="multiple" onchange={onSelectFile}>
-    <a href="javascript:0" onclick={clearAll} data-if="{fileList.length > 1}" class="clear-all-btn">清除全部</a>
+    <a href="javascript:0" onclick={clearAll} data-if="fileList.length > 1" class="clear-all-btn">清除全部</a>
   </div>
   <ol class="file-list">
-    <li data-for={fileList,file} class="file-item" data-file-name={file.name}>
-      <span data-if={file.name!==renameFile}>{file.name}</span>
+    <li data-for=fileList,file class="file-item" data-file-name={file.name}>
+      <span data-if=file.name!==renameFile>{file.name}</span>
       <input type="text" autofocus data-else value={file.name} class="file-name-input" placeholder="文件名">
       <span class="action-btn" title="删除" onclick={onRemove}>❌</span>
       <span class="action-btn" title="命名" onclick={onEdit}>
@@ -15,10 +15,10 @@
       </span>
     </li>
   </ol>
-  <div data-if={fileList.length}>
+  <div data-if=fileList.length>
     <div>
-      <label>保存为：</label>
-      <input type="text" value="{defaultFilename}" onblur="{onblur}" onfocus="{onfocus}" class="dist-input"
+      <label>保存为:</label>
+      <input type="text" data-value="defaultFilename" onblur="{onblur}" onfocus="{onfocus}" class="dist-input"
         placeholder="保存的文件名">
     </div>
     <br>
@@ -61,11 +61,7 @@
     }
     const start = (evt) => {
       if (state.doing) return
-      let distName = evt.target.parentElement.querySelector('.dist-input').value
-      while (distName === '') {
-        distName = window.prompt('保存的文件名称:')
-      }
-      if (!distName) return // cancel
+      let distName = state.defaultFilename
       if (!distName.endsWith('.zip')) {
         distName = distName + '.zip'
       }

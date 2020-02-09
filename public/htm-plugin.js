@@ -5,6 +5,7 @@ const { compileStyle } = require('@vue/component-compiler-utils')
 const crypto = require('crypto')
 const hash = val => crypto.createHash('sha256').update(val).digest('hex').slice(0, 10)
 const validate = require('validate-element-name')
+
 const babel = require('@babel/core')
 const t = babel.types
 
@@ -21,7 +22,7 @@ const requireAttrs = {
 }
 
 const isBinding = val => val[0] === '{' && val[val.length - 1] === '}'
-const isDirective = val => /^data-(if|else|for|html)$/.test(val)
+const isDirective = val => /^data-(if|else|for|html|value)$/.test(val)
 
 const reservedVars = ['$', '_', 't']
 
@@ -47,10 +48,7 @@ class HtmAsset extends Asset {
   async parse (code) {
     this.htm.sourceCode = code
     this.htm.codeOffset = code.slice(0, code.indexOf('<script>')).split(/\r?\n/g).length
-    const dom = new JSDOM(code.trim(), {
-      includeNodeLocations: true
-    })
-    const body = dom.window.document.body
+    const body = JSDOM.fragment(code.trim())
     const script = body.querySelectorAll('script')
     if (script.length > 1) {
       throw new Error('Component only contains no more one script tag.')
@@ -70,14 +68,22 @@ class HtmAsset extends Asset {
       body.removeChild(style)
       return ret
     })
-    this.htm.dom = dom
+    this.htm.dom = body
   }
 
   async transform () {
     const scoped = this._transformStyle(this.htm.styles, this.htm.componentId)
-    const { body } = this.htm.dom.window.document
+    const body = this.htm.dom
     this._transformTemplate(body, scoped)
-    let template = body.innerHTML.trim().replace(/(data-h-[0-9a-z]+)=""/g, '$1')
+    let template = [...body.childNodes].map(node => {
+      if (node.nodeType === 1) {
+        return node.outerHTML
+      }
+      if (node.nodeType === 3) {
+        return node.textContent
+      }
+      return ''
+    }).join('')
     template = he.decode(template)
     const { code, map } = await this._transformScript(this.htm.script.source, template, this.htm.componentId)
     this.htm.script.result = code
@@ -101,7 +107,6 @@ class HtmAsset extends Asset {
       value: result,
       map: this.options.sourceMaps ? map : undefined
     })
-    this.htm.dom.window.close()
     if (process.env.SHOW_CODE) {
       console.log()
       console.log(this.name)
@@ -295,7 +300,7 @@ if (module.hot) {
   }
 
   _transformTemplate (node, scoped) {
-    if (node.tagName === 'BODY') {
+    if (node.nodeType === 11) { // fragment
       ;[...node.childNodes].forEach(child => this._transformTemplate(child, scoped))
     } else if (node.nodeType === 1) {
       const { isValid: isComponent } = validate(node.tagName.toLowerCase())
@@ -310,10 +315,7 @@ if (module.hot) {
       attrs.forEach(attr => {
         const value = attr.value.trim()
         if (isDirective(attr.name)) {
-          if (!isBinding(value)) {
-            throw new Error(`"${attr.name}" attribute value "${value}" should be binding value, ` + node.outerHTML)
-          }
-          const _value = value.slice(1, -1).trim()
+          const _value = isBinding(value) ? value.slice(1, -1).trim() : value
           if (!_value) {
             throw new Error(`${attr.name} can not be empty value, ` + node.outerHTML)
           }
@@ -338,6 +340,11 @@ if (module.hot) {
             }
           } else if (attr.name === 'data-else') {
             throw new Error('Missing data-if matched for data-else at ' + node.outerHTML)
+          } else if (attr.name === 'data-value') {
+            if (tag === 'input') {
+              node.setAttribute('value', `\${${_value}}`)
+              node.setAttribute('oninput', `\${e=>{_$((state)=>{${_value}=e.target.value})}}`)
+            }
           } else {
             node.textContent = _value
           }

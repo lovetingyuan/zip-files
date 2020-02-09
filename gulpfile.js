@@ -164,7 +164,8 @@ exports.prerender = function (done) {
       // virtualConsole,
       resources: new CustomResourceLoader(),
       beforeParse (window) {
-        window.Attr.prototype.cloneNode = window.Attr.prototype.cloneNode || function cloneNode () {
+        // https://github.com/jsdom/jsdom/issues/2832
+        window.Attr.prototype.cloneNode = function cloneNode () {
           const attr = window.document.createAttribute(this.name)
           attr.value = this.value
           return attr
