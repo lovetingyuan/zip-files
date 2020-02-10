@@ -17,9 +17,11 @@ const context = {
   ef: useEffect,
   im (state) {
     const [val, updateValue] = useState(state)
-    return [val, useCallback(updater => {
+    const callback = useCallback(updater => {
       updateValue(produce(updater))
-    }, [])]
+    }, [])
+    this.cb = callback
+    return [val, callback]
   },
   c (id, props = context.p) {
     if (!id) return

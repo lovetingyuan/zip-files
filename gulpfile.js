@@ -187,6 +187,44 @@ exports.prerender = function (done) {
   })
 }
 
+exports.lint = function (done) {
+  const { linter } = require('standard-engine')
+  const _lintFiles = linter.prototype.lintFiles
+  const { getTemplateBindingsFromCache } = require('./public/htm-plugin')
+  linter.prototype.lintFiles = function lintFiles (files, opts, cb) {
+    return _lintFiles.call(this, files, opts, function (err, result) {
+      let totalIgnoreErrCount = 0
+      if (err) return done(err)
+      result.results.forEach(ret => {
+        const templateBinding = getTemplateBindingsFromCache(ret.filePath)
+        if (!templateBinding) return
+        let ignoreErrCount = 0
+        ret.messages = ret.messages.filter(msg => {
+          if (msg.ruleId === 'no-unused-vars' && msg.nodeType === 'Identifier') {
+            const code = msg.source.substr(msg.column - 1)
+            if (templateBinding.bindings.some(variable => code.startsWith(variable))) {
+              if (msg.severity === 2) {
+                ignoreErrCount++
+              }
+              return false
+            }
+          }
+          return true
+        })
+        ret.errorCount -= ignoreErrCount
+        totalIgnoreErrCount += ignoreErrCount
+      })
+      result.errorCount = result.errorCount - totalIgnoreErrCount
+      setTimeout(() => {
+        done(result.errorCount > 0 ? 'standard lint failed.' : null)
+      })
+      return cb(err, result)
+    })
+  }
+  process.argv = [null, null, './src/**/*.{js,htm}', '--plugins', 'html', '--fix']
+  require('standardx/bin/cmd')
+}
+
 Object.keys(exports).forEach(name => {
   if (typeof exports[name] === 'function' && !exports[name].name && !exports[name].displayName) {
     exports[name].displayName = name

@@ -1,13 +1,25 @@
 const { Asset } = require('parcel-bundler')
 const { JSDOM } = require('jsdom')
+const fs = require('fs')
+const filepath = require('path')
+const findCacheDir = require('find-cache-dir')
+
 const he = require('he')
 const { compileStyle } = require('@vue/component-compiler-utils')
 const crypto = require('crypto')
 const hash = val => crypto.createHash('sha256').update(val).digest('hex').slice(0, 10)
+
 const validate = require('validate-element-name')
 
 const babel = require('@babel/core')
 const t = babel.types
+const cacheDir = findCacheDir({ name: 'parcel-plugin-htm', create: true })
+
+function getTemplateBindingsFromCache (filename) {
+  try {
+    return require(filepath.join(cacheDir, hash(filename) + '.json'))
+  } catch (err) {}
+}
 
 // const logger = require('@parcel/logger')
 
@@ -131,20 +143,27 @@ if (module.hot) {
   }
 
   _transformTagTemplate (template, stateVars) {
-    if (!Object.keys(stateVars).length) {
-      return t.taggedTemplateExpression(
-        t.memberExpression(t.identifier('this'), t.identifier('h')),
-        t.templateLiteral([
-          t.templateElement({ raw: template })
-        ], [])
-      )
-    }
+    const hasState = stateVars && Object.keys(stateVars).length > 0
+    // if (!hasState) {
+    //   return t.taggedTemplateExpression(
+    //     t.memberExpression(t.identifier('this'), t.identifier('h')),
+    //     t.templateLiteral([
+    //       t.templateElement({ raw: template })
+    //     ], [])
+    //   )
+    // }
     let scopeGlobals = null
+    const filename = this.name
     const visitor = {
       Program (path) {
         scopeGlobals = path.scope.globals
+        fs.writeFileSync(filepath.join(cacheDir, hash(filename) + '.json'), JSON.stringify({
+          file: filename,
+          bindings: Object.keys(scopeGlobals)
+        }))
       },
       Identifier (path) { // auto bind state and scope variables in template
+        if (!hasState) return
         const name = path.node.name
         if (
           !(name in scopeGlobals) ||
@@ -178,7 +197,6 @@ if (module.hot) {
     let exportDefault
     const offset = this.htm.codeOffset
     const stateVars = {}
-    // const thisVars = {}
     let templateNode = null
     let hookName
     const getTemplateLiteral = this._transformTagTemplate.bind(this, template)
@@ -343,7 +361,7 @@ if (module.hot) {
           } else if (attr.name === 'data-value') {
             if (tag === 'input') {
               node.setAttribute('value', `\${${_value}}`)
-              node.setAttribute('oninput', `\${e=>{_$((state)=>{${_value}=e.target.value})}}`)
+              node.setAttribute('oninput', `\${e=>{this.cb((state)=>{${_value}=e.target.value})}}`)
             }
           } else {
             node.textContent = _value
@@ -462,3 +480,5 @@ module.exports = function (bundler) {
     return new HtmAsset(...arguments)
   }
 }
+
+module.exports.getTemplateBindingsFromCache = getTemplateBindingsFromCache
