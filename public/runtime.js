@@ -2,6 +2,28 @@ import { neverland as $, render, html, useState, useCallback, useEffect } from '
 import produce from 'immer'
 import classNames from 'classnames'
 
+;(function () {
+  var method
+  var noop = function () {}
+  var methods = [
+    'assert', 'clear', 'count', 'debug', 'dir', 'dirxml', 'error',
+    'exception', 'group', 'groupCollapsed', 'groupEnd', 'info', 'log',
+    'markTimeline', 'profile', 'profileEnd', 'table', 'time', 'timeEnd',
+    'timeline', 'timelineEnd', 'timeStamp', 'trace', 'warn'
+  ]
+  var length = methods.length
+  var console = (window.console = window.console || {})
+
+  while (length--) {
+    method = methods[length]
+
+    // Only stub undefined methods.
+    if (!console[method]) {
+      console[method] = noop
+    }
+  }
+}())
+
 const components = Object.create(null)
 
 window.component = function component (id, comp) {

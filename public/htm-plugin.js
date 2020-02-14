@@ -194,7 +194,6 @@ if (module.hot) {
   }
 
   _transformScript (code, template, cid) {
-    let exportDefault
     const offset = this.htm.codeOffset
     const stateVars = {}
     let templateNode = null
@@ -211,11 +210,18 @@ if (module.hot) {
     }
     let scopeName
     const visitor = {
-      ExportDefaultDeclaration (path) {
-        exportDefault = path.node.declaration
-        if (!t.isFunctionDeclaration(exportDefault)) {
-          throw new Error('component must export a function as default.')
+      Program: {
+        enter (path) {
+          const hasDefaultExport = path.node.body.some(node => t.isExportDefaultDeclaration(node))
+          if (!hasDefaultExport) {
+            path.pushContainer('body', t.exportDefaultDeclaration(
+              t.functionDeclaration(null, [], t.blockStatement([]))
+            ))
+          }
         }
+      },
+      ExportDefaultDeclaration (path) {
+        if (!t.isFunctionDeclaration(path.node.declaration)) return
         const { id, params, body } = path.node.declaration
         path.node.declaration = t.callExpression(
           t.identifier('component'),
