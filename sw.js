@@ -1,4 +1,4 @@
-const filesToCache = ["/zip-files/?source=pwa","404.html","favicon.84292e5e.ico","favicon.ico","humans.txt","icon.585561b6.png","icons\\icon-128x128.png","icons\\icon-144x144.png","icons\\icon-152x152.png","icons\\icon-192x192.png","icons\\icon-384x384.png","icons\\icon-512x512.png","icons\\icon-72x72.png","icons\\icon-96x96.png","icons\\icon.png","index.html","LICENSE.txt","main.c8291901.js","main.f9cddbed.css","robots.txt","site.webmanifest","vendor.36cb5d1f.css","vendor.f828a2f9.js"] // eslint-disable-line
+const filesToCache = ["/zip-files/?source=pwa","404.html","favicon.84292e5e.ico","favicon.ico","humans.txt","icon.585561b6.png","icons\\icon-128x128.png","icons\\icon-144x144.png","icons\\icon-152x152.png","icons\\icon-192x192.png","icons\\icon-384x384.png","icons\\icon-512x512.png","icons\\icon-72x72.png","icons\\icon-96x96.png","icons\\icon.png","index.html","LICENSE.txt","main.c8291901.js","main.f9cddbed.css","robots.txt","site.webmanifest","vendor.36cb5d1f.css","vendor.c84d941a.js"] // eslint-disable-line
 
 const staticCacheName = "zip-online" + '@' + "1.2.0" // eslint-disable-line
 
