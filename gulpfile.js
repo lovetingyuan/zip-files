@@ -196,9 +196,9 @@ exports.lint = function (done) {
       let totalIgnoreErrCount = 0
       if (err) return done(err)
       result.results.forEach(ret => {
-        const templateBinding = getTemplateBindingsFromCache(ret.filePath)
-        if (!templateBinding) return
         let ignoreErrCount = 0
+        const templateBinding = getTemplateBindingsFromCache(ret.filePath)
+        if (!templateBinding) return true
         ret.messages = ret.messages.filter(msg => {
           if (msg.ruleId === 'no-unused-vars' && msg.nodeType === 'Identifier') {
             const code = msg.source.substr(msg.column - 1)

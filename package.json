@@ -15,7 +15,7 @@
   "author": "tingyuan",
   "license": "MIT",
   "devDependencies": {
-    "@babel/core": "^7.8.3",
+    "@babel/core": "^7.8.4",
     "@vue/component-compiler-utils": "^3.1.1",
     "cssnano": "^4.1.10",
     "eslint-config-standard": "^14.1.0",
@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "classnames": "^2.2.6",
-    "immer": "^5.3.2",
+    "immer": "^5.3.6",
     "main.css": "^2.0.0",
     "neverland": "^3.1.7",
     "normalize.css": "^8.0.1"
@@ -50,12 +50,19 @@
     },
     "globals": {
       "_": true,
-      "state": true,
+      "t": true,
       "$": true
     },
-    "rules": {
-      "no-labels": 0
-    }
+    "overrides": [
+      {
+        "files": [
+          "*.htm"
+        ],
+        "rules": {
+          "no-labels": "off"
+        }
+      }
+    ]
   },
   "alias": {
     "img": "./src/img"

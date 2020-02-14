@@ -248,6 +248,36 @@ if (module.hot) {
           }
         }
       },
+      VariableDeclaration (path) {
+        if (!findEDD(path, 4)) return
+        if (path.node.kind !== 'const') return
+        const declarator = path.node.declarations[0]
+        if (!t.isVariableDeclarator(declarator)) return
+        if (!t.isIdentifier(declarator.id) || declarator.id.name !== STATE_NAME) return
+        if (hookName) return
+        hookName = path.scope.generateUid('$')
+        if (!t.isObjectExpression(declarator.init)) {
+          throw new Error('const state variable declarator must be object literal.')
+        }
+        declarator.init.properties.forEach(prop => {
+          if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
+            if (reservedVars.includes(prop.key.name)) {
+              throw new Error(`"${prop.key.name}" is a reserved variable name, can not be used in state.`)
+            }
+            stateVars[prop.key.name] = STATE_NAME
+          }
+        })
+        declarator.id = t.arrayPattern(
+          [
+            t.identifier(STATE_NAME),
+            t.identifier(hookName)
+          ]
+        )
+        declarator.init = t.callExpression(
+          t.memberExpression(t.thisExpression(), t.identifier('im')),
+          [declarator.init]
+        )
+      },
       AssignmentExpression (path) {
         if (path.node.operator !== '=') return
         if (!findEDD(path, 5)) return
@@ -263,36 +293,6 @@ if (module.hot) {
               [path.node.right]
             ))
           }
-        } else if (t.isIdentifier(path.node.left) && path.node.left.name === STATE_NAME) {
-          hookName = path.scope.generateUid('$')
-          if (!t.isObjectExpression(path.node.right)) {
-            throw new Error('state assignment must be object literal.')
-          }
-          path.node.right.properties.forEach(prop => {
-            if (t.isObjectProperty(prop) && t.isIdentifier(prop.key)) {
-              if (reservedVars.includes(prop.key.name)) {
-                throw new Error(`"${prop.key.name}" is a reserved variable name, can not be used in state.`)
-              }
-              stateVars[prop.key.name] = STATE_NAME
-            }
-          })
-          path.replaceWithMultiple(t.variableDeclaration(
-            'const',
-            [
-              t.variableDeclarator(
-                t.arrayPattern(
-                  [
-                    t.identifier(STATE_NAME),
-                    t.identifier(hookName)
-                  ]
-                ),
-                t.callExpression(
-                  t.memberExpression(t.thisExpression(), t.identifier('im')),
-                  [path.node.right]
-                )
-              )
-            ]
-          ))
         }
       },
       LabeledStatement (path) {
