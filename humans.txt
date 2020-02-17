@@ -3,14 +3,14 @@
 
 # TEAM
 
-    <tingyuan> -- <role> -- <twitter>
+    tingyuan -- developer -- <twitter>
 
 # THANKS
 
-    <xue>
+    ♥xue
 
 # TECHNOLOGY COLOPHON
 
     HTML5 Boilerplate
-    CSS3, HTML5
+    neverland, immer, parcel
     Normalize.css
