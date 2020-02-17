@@ -90,23 +90,24 @@ function printbuiltinfo (doc) {
   const builtime = doc.createElement('script')
   /* eslint-disable */
   const builtimefunc = function () {
-    var v = window.BUILTIME;
+    var v = BUILTIME;
     var d = new Date(v[0]);
     var s = [d.getFullYear(), '/', d.getMonth() + 1, '/', d.getDate(), ' ', d.getHours(), ':', d.getMinutes()];
+    var t = document.querySelector('meta[name="theme-color"]');
     console.log(
       '%c' + v[1] + '(' + v[2] + '): ' + s.join('') + ' ' + v[3],
-      'background:#EE4D2D;color:#fff;padding:2px 10px;border-radius:2px;'
+      'background:'+ (t ? t.content : 'lightseagreen') + ';color:#fff;padding:2px 10px;border-radius:2px;'
     );
   }
   /* eslint-enable */
-  builtime.textContent = `(${builtimefunc.toString().replace(
-    'window.BUILTIME', JSON.stringify([
+  builtime.textContent = `setTimeout(${builtimefunc.toString().replace(
+    'BUILTIME', JSON.stringify([
       Date.now(),
       process.env.npm_package_name,
       process.env.npm_package_version,
       require('git-rev-sync').short(null, 10)
     ])
-  ).replace(/\s{2,}/mg, ' ')})()`
+  ).replace(/\s{2,}/mg, ' ')})`
   doc.body.appendChild(builtime)
 }
 
@@ -139,7 +140,7 @@ exports.prerender = function (done) {
 
   // monkey patch to enable cors
   try {
-    const xhrUtilsPatch = require('jsdom/lib/jsdom/living/xhr-utils')
+    const xhrUtilsPatch = require('jsdom/lib/jsdom/living/xhr/xhr-utils')
     const originValidCORSHeaders = xhrUtilsPatch.validCORSHeaders
     xhrUtilsPatch.validCORSHeaders = function validCORSHeaders (xhr, response) {
       response.headers['access-control-allow-origin'] = '*'
@@ -152,7 +153,6 @@ exports.prerender = function (done) {
   const app = express()
   app.use(express.static(distDir))
   const port = process.env.PORT || 4200
-  const appContentReg = /<!--\[if APP-START\]><!\[endif\]-->[\s\S]+?<!--\[if APP-END\]><!\[endif\]-->/m
   const server = app.listen(port, (err) => {
     if (err) return done(err)
     const url = 'http://localhost:' + port
@@ -166,6 +166,7 @@ exports.prerender = function (done) {
       beforeParse (window) {
         window.__prerender__ = function (rendered) {
           const indexfilepath = path.join(distDir, 'index.html')
+          const appContentReg = /<!--\[if APP-START\]><!\[endif\]-->[\s\S]+?<!--\[if APP-END\]><!\[endif\]-->/m
           fse.writeFileSync(
             indexfilepath,
             fse.readFileSync(indexfilepath, 'utf8').replace(appContentReg, rendered)
