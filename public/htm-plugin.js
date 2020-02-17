@@ -1,6 +1,6 @@
 const { Asset } = require('parcel-bundler')
 const { JSDOM } = require('jsdom')
-const fs = require('fs')
+const fse = require('fs-extra')
 const filepath = require('path')
 const findCacheDir = require('find-cache-dir')
 
@@ -14,12 +14,6 @@ const validate = require('validate-element-name')
 const babel = require('@babel/core')
 const t = babel.types
 const cacheDir = findCacheDir({ name: 'parcel-plugin-htm', create: true })
-
-function getTemplateBindingsFromCache (filename) {
-  try {
-    return require(filepath.join(cacheDir, hash(filename) + '.json'))
-  } catch (err) {}
-}
 
 // const logger = require('@parcel/logger')
 
@@ -157,7 +151,7 @@ if (module.hot) {
     const visitor = {
       Program (path) {
         scopeGlobals = path.scope.globals
-        fs.writeFileSync(filepath.join(cacheDir, hash(filename) + '.json'), JSON.stringify({
+        fse.writeFileSync(filepath.join(cacheDir, hash(filename) + '.json'), JSON.stringify({
           file: filename,
           bindings: Object.keys(scopeGlobals)
         }))
@@ -479,12 +473,138 @@ if (module.hot) {
   }
 }
 
+const pkg = require('../package.json')
+if (!pkg.config) {
+  pkg.config = {}
+}
+
+function printbuiltinfo (doc) {
+  const script = doc.createElement('script')
+  /* eslint-disable */
+  const builtimefunc = function () {
+    var v = BUILTIME;
+    var d = new Date(v[0]);
+    var s = [d.getFullYear(), '/', d.getMonth() + 1, '/', d.getDate(), ' ', d.getHours(), ':', d.getMinutes()];
+    var t = document.querySelector('meta[name="theme-color"]');
+    console.log(
+      '%c' + v[1] + '(' + v[2] + '): ' + s.join('') + ' ' + v[3],
+      'background:'+ (t ? t.content : 'lightseagreen') + ';color:#fff;padding:2px 10px;border-radius:2px;'
+    );
+  }
+  /* eslint-enable */
+  script.textContent = `setTimeout(${builtimefunc.toString().replace(
+    'BUILTIME', JSON.stringify([
+      Date.now(),
+      process.env.npm_package_name,
+      process.env.npm_package_version,
+      require('git-rev-sync').short(null, 10)
+    ])
+  ).replace(/\s{2,}/mg, ' ')})`
+  doc.body.appendChild(script)
+}
+
+function injectserviceworker (doc, distDir, rootDir) {
+  const swfilename = 'sw.js'
+  const publicPath = pkg.config.publicPath || '/'
+  if (doc) {
+    const script = doc.createElement('script')
+    script.innerHTML = `
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('./${swfilename}', { scope: '${publicPath || ''}' });
+      });
+    }
+    `.replace(/\s{2,}/mg, ' ')
+    doc.body.appendChild(script)
+  }
+  let swcode = fse.readFileSync(require.resolve('../src/js/sw.js'), 'utf8')
+  const walkDir = (base, dirs = [], list = []) => {
+    const dirpath = filepath.join(base, ...dirs)
+    fse.readdirSync(dirpath).forEach(f => {
+      if (f[0] === '.') return
+      const file = filepath.join(dirpath, f)
+      const isDirectory = fse.statSync(file).isDirectory()
+      isDirectory ? walkDir(base, dirs.concat(f), list) : list.push(filepath.join(...dirs, f))
+    })
+    return list
+  }
+  const cacheFileList = Array.from(new Set([
+    publicPath + '?source=pwa',
+    ...walkDir(rootDir),
+    ...walkDir(distDir)
+  ].filter(f => {
+    if (/(runtime|htm-plugin)\.js$/.test(f)) return false
+    if (/^icon-.+\.png$/.test(f)) return false
+    if (f.endsWith('.map')) return false
+    return true
+  })))
+  swcode = swcode.replace('CACHE_LIST', JSON.stringify(cacheFileList))
+    .replace('APP_NAME', JSON.stringify(pkg.name))
+    .replace('APP_VERSION', JSON.stringify(pkg.version))
+  fse.outputFileSync(filepath.join(distDir, swfilename), swcode)
+}
+
+function preloadandinline (doc, distDir) {
+  const inlineSize = pkg.config.inlineSize || 10000
+  const resolve = f => filepath.join(distDir, f)
+  doc.querySelectorAll('script[src]').forEach(dom => {
+    const file = resolve(dom.src)
+    if (!fse.existsSync(file)) return
+    if (fse.lstatSync(file).size <= inlineSize) {
+      dom.removeAttribute('src')
+      dom.innerHTML = fse.readFileSync(file, 'utf8')
+    } else {
+      const preload = doc.createElement('link')
+      preload.href = dom.src
+      preload.rel = 'preload'
+      preload.setAttribute('as', 'script')
+      doc.head.appendChild(preload)
+    }
+  })
+  doc.querySelectorAll('link[rel=stylesheet][href]').forEach(dom => {
+    const file = resolve(dom.href)
+    if (!fse.existsSync(file)) return
+    if (fse.lstatSync(file).size <= inlineSize) {
+      const style = doc.createElement('style')
+      style.innerHTML = fse.readFileSync(file, 'utf8')
+      dom.replaceWith(style)
+    } else {
+      dom.rel = 'preload'
+      dom.setAttribute('as', 'style')
+      dom.setAttribute('onload', "this.rel='stylesheet'")
+    }
+  })
+}
+
+function processHtmlPlugin (bundler) {
+  bundler.on('bundled', (bundle) => {
+    const bundles = Array.from(bundle.childBundles).concat([bundle])
+    return Promise.all(bundles.map(async bundle => {
+      if (!bundle.entryAsset || bundle.entryAsset.type !== 'html') return
+      if (!bundle.name.endsWith('index.html')) return
+      const data = fse.readFileSync(bundle.name, 'utf8')
+      const dom = new JSDOM(data)
+      printbuiltinfo(dom.window.document)
+      if (bundler.options.production) {
+        injectserviceworker(dom.window.document, bundler.options.outDir, bundler.options.rootDir)
+        preloadandinline(dom.window.document, bundler.options.outDir)
+      }
+      fse.writeFileSync(bundle.name, dom.serialize())
+    }))
+  })
+}
+
 module.exports = function (bundler) {
   if (typeof bundler === 'object') {
     bundler.addAssetType('htm', __filename)
+    processHtmlPlugin(bundler)
   } else {
     return new HtmAsset(...arguments)
   }
 }
 
-module.exports.getTemplateBindingsFromCache = getTemplateBindingsFromCache
+module.exports.getTemplateBindingsFromCache = (filename) => {
+  try {
+    return require(filepath.join(cacheDir, hash(filename) + '.json'))
+  } catch (err) {}
+}
