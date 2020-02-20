@@ -1,24 +1,32 @@
 const { Asset } = require('parcel-bundler')
-const { JSDOM } = require('jsdom')
+try {
+  const xhrUtilsPatch = require('jsdom/lib/jsdom/living/xhr/xhr-utils')
+  const originValidCORSHeaders = xhrUtilsPatch.validCORSHeaders
+  xhrUtilsPatch.validCORSHeaders = function validCORSHeaders (xhr, response) {
+    response.headers['access-control-allow-origin'] = '*'
+    response.headers['access-control-allow-credentials'] = 'true'
+    return originValidCORSHeaders.apply(this, arguments)
+  }
+} catch (err) {}
+
+const { JSDOM, VirtualConsole, ResourceLoader } = require('jsdom')
 const fse = require('fs-extra')
 const filepath = require('path')
 const findCacheDir = require('find-cache-dir')
-
+const express = require('express')
 const he = require('he')
 const { compileStyle } = require('@vue/component-compiler-utils')
 const crypto = require('crypto')
-const hash = val => crypto.createHash('sha256').update(val).digest('hex').slice(0, 10)
-
 const validate = require('validate-element-name')
-
 const babel = require('@babel/core')
+const mustache = require('mustache')
+
+const hash = val => crypto.createHash('sha256').update(val).digest('hex').slice(0, 10)
 const t = babel.types
 const cacheDir = findCacheDir({ name: 'parcel-plugin-htm', create: true })
+mustache.tags = ['{', '}']
 
 // const logger = require('@parcel/logger')
-
-const mustache = require('mustache')
-mustache.tags = ['{', '}']
 
 const requireAttrs = {
   img: ['src'],
@@ -576,35 +584,130 @@ function preloadandinline (doc, distDir) {
   })
 }
 
-function processHtmlPlugin (bundler) {
+function copycleandist (rootDir, outDir) {
+  const ignoreCopy = [
+    'htm-plugin.js', 'runtime.js', 'index.html'
+  ]
+  fse.copySync(rootDir, outDir, {
+    filter: src => !(ignoreCopy.some(f => src.endsWith(f)))
+  })
+  fse.readdirSync(outDir).forEach(file => {
+    if (/^icon-.+\.png$/.test(file)) {
+      fse.removeSync(filepath.join(outDir, file))
+    }
+  })
+}
+
+function prerender (outDir) {
+  const _ignoreReq = new RegExp('google-analytics')
+  class CustomResourceLoader extends ResourceLoader {
+    fetch (url, options) {
+      if (_ignoreReq.test(url)) {
+        return Promise.resolve(Buffer.from(''))
+      }
+      return super.fetch(url, options)
+    }
+  }
+  const app = express()
+  app.use(express.static(outDir))
+  const port = process.env.PORT || 4200
+  const server = app.listen(port, (err) => {
+    if (err) {
+      throw new Error('prerender error: ' + err.message)
+    }
+    const url = 'http://localhost:' + port
+    const virtualConsole = new VirtualConsole()
+    virtualConsole.sendTo(console)
+    JSDOM.fromURL(url, {
+      runScripts: 'dangerously',
+      pretendToBeVisual: true,
+      // virtualConsole,
+      resources: new CustomResourceLoader(),
+      beforeParse (window) {
+        window.__prerender__ = function (rendered) {
+          const appContentReg = /<!--\[if APP-START\]><!\[endif\]-->[\s\S]+?<!--\[if APP-END\]><!\[endif\]-->/m
+          const indexfilepath = filepath.join(outDir, 'index.html')
+          fse.writeFileSync(
+            indexfilepath,
+            fse.readFileSync(indexfilepath, 'utf8').replace(appContentReg, rendered)
+          )
+          try {
+            window.close() // if there are remaining async tasks, window close may throw error.
+          } catch (err) {} finally {
+            server.close()
+          }
+        }
+      }
+    }).catch(err => {
+      throw new Error('prerender error, ' + err.message)
+    })
+  })
+}
+
+function lint () {
+  const { linter } = require('standard-engine')
+  const _lintFiles = linter.prototype.lintFiles
+  linter.prototype.lintFiles = function lintFiles (files, opts, cb) {
+    return _lintFiles.call(this, files, opts, function (err, result) {
+      let totalIgnoreErrCount = 0
+      if (err) return cb(err)
+      result.results.forEach(ret => {
+        let ignoreErrCount = 0
+        let templateBinding
+        try {
+          templateBinding = require(filepath.join(cacheDir, hash(ret.filePath) + '.json'))
+        } catch (err) {}
+        if (!templateBinding) return true
+        ret.messages = ret.messages.filter(msg => {
+          if (msg.ruleId === 'no-unused-vars' && msg.nodeType === 'Identifier') {
+            const code = msg.source.substr(msg.column - 1)
+            if (templateBinding.bindings.some(variable => code.startsWith(variable))) {
+              if (msg.severity === 2) {
+                ignoreErrCount++
+              }
+              return false
+            }
+          }
+          return true
+        })
+        ret.errorCount -= ignoreErrCount
+        totalIgnoreErrCount += ignoreErrCount
+      })
+      result.errorCount = result.errorCount - totalIgnoreErrCount
+      return cb(err, result)
+    })
+  }
+  process.argv = [null, null, './src/**/*.{js,htm}', '--plugins', 'html', '--fix']
+  require('standardx/bin/cmd')
+}
+
+function postPlugin (bundler) {
   bundler.on('bundled', (bundle) => {
-    const bundles = Array.from(bundle.childBundles).concat([bundle])
-    return Promise.all(bundles.map(async bundle => {
-      if (!bundle.entryAsset || bundle.entryAsset.type !== 'html') return
-      if (!bundle.name.endsWith('index.html')) return
+    const { rootDir, outDir, production } = bundler.options
+    if (bundle.type === 'html' && bundle.entryAsset.basename === 'index.html') {
       const data = fse.readFileSync(bundle.name, 'utf8')
       const dom = new JSDOM(data)
       printbuiltinfo(dom.window.document)
-      if (bundler.options.production) {
-        injectserviceworker(dom.window.document, bundler.options.outDir, bundler.options.rootDir)
-        preloadandinline(dom.window.document, bundler.options.outDir)
+      if (production) {
+        injectserviceworker(dom.window.document, outDir, rootDir)
+        preloadandinline(dom.window.document, outDir)
+        copycleandist(rootDir, outDir)
       }
       fse.writeFileSync(bundle.name, dom.serialize())
-    }))
+      console.log('start to prerender...')
+      prerender(outDir)
+      console.log('standardx lint...')
+      lint()
+      console.log('Build done.')
+    }
   })
 }
 
 module.exports = function (bundler) {
   if (typeof bundler === 'object') {
     bundler.addAssetType('htm', __filename)
-    processHtmlPlugin(bundler)
+    postPlugin(bundler)
   } else {
     return new HtmAsset(...arguments)
   }
-}
-
-module.exports.getTemplateBindingsFromCache = (filename) => {
-  try {
-    return require(filepath.join(cacheDir, hash(filename) + '.json'))
-  } catch (err) {}
 }

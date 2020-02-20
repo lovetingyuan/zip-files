@@ -7,8 +7,7 @@
     "serve": "npx parcel public/index.html --cache-dir node_modules/.cache/parcel",
     "build": "npx parcel build public/index.html --cache-dir node_modules/.cache/parcel --detailed-report --no-source-maps --public-url ./",
     "dev": "npx rimraf node_modules/.cache dist && npm run serve",
-    "prebuild": "npx gulp lint && rm -rf dist",
-    "postbuild": "npx gulp",
+    "prebuild": "rm -rf dist",
     "checkdep": "npx npm-check-updates"
   },
   "keywords": [],
@@ -24,7 +23,7 @@
     "find-cache-dir": "^3.2.0",
     "fs-extra": "^8.1.0",
     "git-rev-sync": "^2.0.0",
-    "got": "^10.5.7",
+    "got": "^10.6.0",
     "gulp": "^4.0.2",
     "gulp-cli": "^2.2.0",
     "he": "^1.2.0",
@@ -59,7 +58,8 @@
           "*.htm"
         ],
         "rules": {
-          "no-labels": "off"
+          "no-labels": "off",
+          "no-unused-vars": ["error", { "varsIgnorePattern": "^\\$.+" }]
         }
       }
     ]
