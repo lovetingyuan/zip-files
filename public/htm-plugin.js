@@ -645,38 +645,33 @@ function prerender (outDir) {
 }
 
 function lint () {
-  const { linter } = require('standard-engine')
-  const _lintFiles = linter.prototype.lintFiles
-  linter.prototype.lintFiles = function lintFiles (files, opts, cb) {
-    return _lintFiles.call(this, files, opts, function (err, result) {
-      let totalIgnoreErrCount = 0
-      if (err) return cb(err)
-      result.results.forEach(ret => {
-        let ignoreErrCount = 0
-        let templateBinding
-        try {
-          templateBinding = require(filepath.join(cacheDir, hash(ret.filePath) + '.json'))
-        } catch (err) {}
-        if (!templateBinding) return true
-        ret.messages = ret.messages.filter(msg => {
-          if (msg.ruleId === 'no-unused-vars' && msg.nodeType === 'Identifier') {
-            const code = msg.source.substr(msg.column - 1)
-            if (templateBinding.bindings.some(variable => code.startsWith(variable))) {
-              if (msg.severity === 2) {
-                ignoreErrCount++
-              }
-              return false
+  const noUnusedVarsRule = require('eslint/lib/rules/no-unused-vars')
+  const { create } = noUnusedVarsRule
+  noUnusedVarsRule.create = function (context) {
+    const filename = context.getFilename()
+    let templateBinding
+    try {
+      templateBinding = require(filepath.join(cacheDir, hash(filename) + '.json'))
+    } catch (err) {}
+    const isHtm = filename.endsWith('.htm')
+    const ctx = Object.keys(context).reduce((ctx, key) => {
+      if (key === 'report') {
+        Object.defineProperty(ctx, key, Object.assign(Object.getOwnPropertyDescriptor(context, key), {
+          value: function report (info) {
+            if (isHtm && templateBinding && info.node.type === 'Identifier') {
+              if (templateBinding.bindings.some(v => info.node.name === v)) return
             }
+            return context.report.call(this, info)
           }
-          return true
-        })
-        ret.errorCount -= ignoreErrCount
-        totalIgnoreErrCount += ignoreErrCount
-      })
-      result.errorCount = result.errorCount - totalIgnoreErrCount
-      return cb(err, result)
-    })
+        }))
+      } else {
+        Object.defineProperty(ctx, key, Object.getOwnPropertyDescriptor(context, key))
+      }
+      return ctx
+    }, Object.create(Object.getPrototypeOf(context)))
+    return create.call(this, ctx)
   }
+
   process.argv = [null, null, './src/**/*.{js,htm}', '--plugins', 'html', '--fix']
   require('standardx/bin/cmd')
 }
@@ -698,7 +693,6 @@ function postPlugin (bundler) {
       prerender(outDir)
       console.log('standardx lint...')
       lint()
-      console.log('Build done.')
     }
   })
 }
