@@ -1,4 +1,5 @@
 const { Asset } = require('parcel-bundler')
+
 try {
   const xhrUtilsPatch = require('jsdom/lib/jsdom/living/xhr/xhr-utils')
   const originValidCORSHeaders = xhrUtilsPatch.validCORSHeaders
@@ -20,13 +21,12 @@ const crypto = require('crypto')
 const validate = require('validate-element-name')
 const babel = require('@babel/core')
 const mustache = require('mustache')
+const logger = require('@parcel/logger')
 
 const hash = val => crypto.createHash('sha256').update(val).digest('hex').slice(0, 10)
 const t = babel.types
 const cacheDir = findCacheDir({ name: 'parcel-plugin-htm', create: true })
 mustache.tags = ['{', '}']
-
-// const logger = require('@parcel/logger')
 
 const requireAttrs = {
   img: ['src'],
@@ -39,7 +39,6 @@ const isBinding = val => val[0] === '{' && val[val.length - 1] === '}'
 const isDirective = val => /^data-(if|else|for|html|value)$/.test(val)
 
 const reservedVars = ['$', '_', 't']
-
 const STATE_NAME = 'state'
 
 class HtmAsset extends Asset {
@@ -653,16 +652,17 @@ function lint () {
     try {
       templateBinding = require(filepath.join(cacheDir, hash(filename) + '.json'))
     } catch (err) {}
+    function report (info) {
+      if (isHtm && templateBinding && info.node.type === 'Identifier') {
+        if (templateBinding.bindings.some(v => info.node.name === v)) return
+      }
+      return context.report.call(this, info)
+    }
     const isHtm = filename.endsWith('.htm')
     const ctx = Object.keys(context).reduce((ctx, key) => {
       if (key === 'report') {
         Object.defineProperty(ctx, key, Object.assign(Object.getOwnPropertyDescriptor(context, key), {
-          value: function report (info) {
-            if (isHtm && templateBinding && info.node.type === 'Identifier') {
-              if (templateBinding.bindings.some(v => info.node.name === v)) return
-            }
-            return context.report.call(this, info)
-          }
+          value: report
         }))
       } else {
         Object.defineProperty(ctx, key, Object.getOwnPropertyDescriptor(context, key))
@@ -672,7 +672,7 @@ function lint () {
     return create.call(this, ctx)
   }
 
-  process.argv = [null, null, './src/**/*.{js,htm}', '--plugins', 'html', '--fix']
+  process.argv = [null, null, '--plugins', 'html', '--fix', './src/**/*.{js,htm}']
   require('standardx/bin/cmd')
 }
 
@@ -689,9 +689,9 @@ function postPlugin (bundler) {
         copycleandist(rootDir, outDir)
       }
       fse.writeFileSync(bundle.name, dom.serialize())
-      console.log('start to prerender...')
+      logger.log('start to prerender...')
       prerender(outDir)
-      console.log('standardx lint...')
+      logger.log('standardx lint...')
       lint()
     }
   })
