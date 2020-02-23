@@ -687,12 +687,12 @@ function postPlugin (bundler) {
         injectserviceworker(dom.window.document, outDir, rootDir)
         preloadandinline(dom.window.document, outDir)
         copycleandist(rootDir, outDir)
+        fse.writeFileSync(bundle.name, dom.serialize())
+        logger.log('start to prerender...')
+        prerender(outDir)
+        logger.log('standardx lint...')
+        lint()
       }
-      fse.writeFileSync(bundle.name, dom.serialize())
-      logger.log('start to prerender...')
-      prerender(outDir)
-      logger.log('standardx lint...')
-      lint()
     }
   })
 }
