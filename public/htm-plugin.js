@@ -160,7 +160,8 @@ if (module.hot) {
         scopeGlobals = path.scope.globals
         fse.writeFileSync(filepath.join(cacheDir, hash(filename) + '.json'), JSON.stringify({
           file: filename,
-          bindings: Object.keys(scopeGlobals)
+          bindings: Object.keys(scopeGlobals),
+          state: Object.keys(stateVars)
         }))
       },
       Identifier (path) { // auto bind state and scope variables in template
@@ -654,7 +655,8 @@ function lint () {
     } catch (err) {}
     function report (info) {
       if (isHtm && templateBinding && info.node.type === 'Identifier') {
-        if (templateBinding.bindings.some(v => info.node.name === v)) return
+        const { state, bindings } = templateBinding
+        if (!state.includes(info.node.name) && bindings.includes(info.node.name)) return
       }
       return context.report.call(this, info)
     }
